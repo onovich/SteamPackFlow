@@ -1,0 +1,30 @@
+# Build archives and local package drops
+Build/
+*.zip
+*.rar
+*.7z
+
+# SteamCMD generated content, cache, and logs
+**/content/
+**/output/
+**/logs/
+**/package/
+*.log
+*.csm
+*.csd
+
+# SteamCMD runtime binaries copied from Valve packages
+Mac/steamcmd
+Mac/*.dylib
+Mac/Frameworks/
+Mac/public/
+Mac/update_hosts_cached.vdf
+
+# Platform/editor noise
+.DS_Store
+Thumbs.db
+
+# Local secrets and machine-specific config
+*.local.json
+*.local.ps1
+*.secret.*
