@@ -1,8 +1,10 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [string[]]$PackagePath,
     [string]$SteamUser,
     [string]$ConfigPath,
+    [ValidateSet("zh-CN", "en-US")]
+    [string]$Language = "zh-CN",
     [switch]$PlanOnly,
     [switch]$DryRun,
     [switch]$AllowPlaceholderConfig
@@ -16,20 +18,110 @@ $Script:ConfigPath = if ([string]::IsNullOrWhiteSpace($ConfigPath)) { Join-Path 
 $Script:Workspace = Join-Path $Script:Root "workspace"
 $Script:Inbox = Join-Path $Script:Root "inbox"
 $Script:NamePattern = '^(Win|Mac)_([A-Za-z0-9]+)_([0-9]+\.[0-9]+\.[0-9]+)(_Demo)?\.zip$'
+$zhJsonBase64 = @(
+    "eyJJbmZvUHJlZml4IjoiW+S/oeaBr10iLCJXYXJuUHJlZml4IjoiW+itpuWRil0iLCJFcnJvclByZWZpeCI6IlvplJnor69dIiwiVGl0bGUiOiI9PT09PT09IFN0ZWFtIFdpbmRvd3Mg5LiK5Lyg5bel5YW3ID09PT09PT0iLCJQbGFuT25seU1vZGUiOiLorqHliJLpooTop4jmqKHlvI/vvJrkuI3kvJrlpI3liLbjgIHop6PljovjgIHnlJ/miJAgVkRGIOaIluS4iuS8oOOAgiIsIkRyeVJ1bk1vZGUiOiLlubLot5HmqKHlvI/vvJrlj6rlpI3liLbjgIHop6PljovlubbnlJ/miJAgVkRG77yM5LiN5Lya6LCD55SoIFN0ZWFtQ01EIOS4iuS8oOOAgiIsIkluYm94SW50cm8iOiLor7fmiorkuIDkuKrmiJblpJrkuKogLnppcCDljIXlpI3liLbliLDov5nkuKrmlofku7blpLnvvJoiLCJJbmJveE9wZW4iOiLnjrDlnKjkvJroh6rliqjmiZPlvIDor6Xmlofku7blpLnjgILlpI3liLblrozmiJDlkI7vvIzor7flm57liLDov5nkuKrnqpflj6PlubbmjIkgRW50ZXIg57un57ut44CCIiwiSW5ib3hPcGVuRmFpbGVkIjoi5peg5rOV6Ieq5Yqo5omT5byA5paH5Lu25aS577yaezB9IiwiSW5ib3hDb250aW51ZSI6IuWkjeWItuWujOaIkOWQjuaMiSBFbnRlciDnu6fnu60iLCJJbmJveFVuc3VwcG9ydGVkIjoi5pS25Lu25aS56YeM5Y+R546w5LiN5pSv5oyB55qE5Y6L57yp5YyF77yaezB944CC6K+356e76Zmk"
+    "5a6D5Lus77yM5Y+q5L+d55WZIC56aXAg5paH5Lu244CCIiwiSW5ib3hFbXB0eSI6IuWcqCB7MH0g5Lit5rKh5pyJ5om+5YiwIC56aXAg5YyF44CCIiwiSW5ib3hGb3VuZCI6IuWcqOaUtuS7tuWkueS4reaJvuWIsCB7MH0g5Liq5YyF44CCIiwiTWlzc2luZ0NvbmZpZyI6IuayoeacieaJvuWIsOmFjee9ruaWh+S7tuOAguW3suWcqCB7MH0g5Yib5bu656m65qih5p2/44CC6K+35aGr5YaZ55yf5a6e5ri45oiP5ZCN44CBQXBwSUQg5ZKMIERlcG90SUQg5ZCO6YeN5paw6L+Q6KGM5bel5YW344CCIiwiTWlzc2luZ0dhbWVzIjoi6YWN572u5paH5Lu257y65bCR6aG25bGCICdnYW1lcycg5a+56LGh44CC6K+357yW6L6RIHswfeOAgiIsIkdhbWVNaXNzaW5nIjoi5ri45oiPICd7MH0nIOayoeaciemFjee9ruWcqCB7MX0g5Lit44CC6K+35ZyoICdnYW1lcycg5LiL5re75YqgICd7MH0n44CCIiwiUmVsZWFzZU1pc3NpbmciOiLljIUgJ3swfScg5pivezF977yM5L2G6YWN572u5Lit5rKh5pyJICd7MH0uezJ9JyDmrrXjgILor7flhYjooaXlhYUgYXBwSWQg5ZKMIGRlcG90c+OAgiIsIkZ1bGxSZWxlYXNlIjoi5q2j5byP54mIIiwiRGVtb1JlbGVhc2UiOiJEZW1vIOeJiCIsIkFwcElkTWlzc2luZyI6IumFjee9riAnezB9LnsxfScg57y65bCRICdhcHBJZCfjgILor7flhYjooaXlhYUgU3RlYW0gQXBw"
+    "SUTjgIIiLCJEZXBvdHNNaXNzaW5nIjoi6YWN572uICd7MH0uezF9JyDnvLrlsJEgJ2RlcG90cyfjgILor7flhYjooaXlhYUgV2luL01hYyBEZXBvdElE44CCIiwiRGVwb3RNaXNzaW5nIjoi5YyFICd7MH0nIOaYryB7MX0g5bmz5Y+w77yM5L2G6YWN572uICd7MH0uezJ9LmRlcG90cy57MX0nIOS4jeWfmOWcqOOAguivt+WFiOihpeWFhSB7MX0gRGVwb3RJROOAgiIsIlBsYWNlaG9sZGVyQ29uZmlnIjoi6YWN572uICd7MH0uezF9JyDnvLrlpLHjgIHkuLrnqbrvvIzmiJbku43mmK/ljaDkvY0gQXBwSUQvRGVwb3RJROOAguivt+WFiOWcqCB7M30g5Lit6KGl5YWoIGFwcElkIOWSjCBkZXBvdHMuezJ944CCIiwiVW5zdXBwb3J0ZWRBcmNoaXZlIjoi5LiN5pSv5oyB55qE5Y6L57yp5YyFICd7MH0n44CC6K+35o+Q5L6b57G75Ly8IFdpbl9HYW1lXzEuMi4zX0RlbW8uemlwIOWRveWQjeeahCAuemlwIOaWh+S7tuOAgiIsIkludmFsaWRGaWxlTmFtZSI6IuaWh+S7tuWQjSAnezB9JyDkuI3nrKblkIjop4TliJnjgILlupTkuLrvvJpXaW5fR2FtZV8xLjIuMy56aXDjgIFNYWNfR2FtZV8xLjIuMy56aXDjgIFXaW5fR2FtZV8xLjIuM19EZW1vLnppcCDmiJYgTWFjX0dhbWVfMS4yLjNfRGVtby56aXDjgIIiLCJEdXBsaWNhdGVQbGF0Zm9ybSI6IuS7u+WKoSAnezF9JyDkuK3ph43lpI3lh7rnjrAgezB9"
+    "IOWMheOAgiIsIlJlZnVzZUNsZWFuIjoi5ouS57ud5riF55CG5bel5L2c5Yy65LmL5aSW55qE55uu5b2V77yaezB9IiwiTm9FbnRyeSI6IuWcqCAnezF9JyDkuK3msqHmnInmib7liLAgezB9IOWAmemAieWFpeWPo+OAgiIsIk11bHRpRW50cnkiOiLlnKggJ3swfScg5Lit5om+5Yiw5aSa5Liq5YWl5Y+j5YCZ6YCJ77yaezF944CC6K+35Y+q5L+d55WZ5LiA5Liq44CCIiwiRW50cnlPayI6InswfSDlhaXlj6Plt7Lnu4/mmK8gezF944CCIiwiRW50cnlUYXJnZXRFeGlzdHMiOiLml6Dms5XmioogJ3swfScg5pS55ZCN5Li6ICd7MX0n77yM5Zug5Li655uu5qCH5bey5a2Y5Zyo44CCIiwiRW50cnlSZW5hbWVkIjoiezB9IOWFpeWPo+W3suaUueWQje+8mnsxfSAtPiB7Mn0iLCJFeHRyYWN0aW5nIjoi5q2j5Zyo6Kej5Y6LIHswfSAtPiB7MX0iLCJTdGVhbUNtZE1pc3NpbmciOiLmib7kuI3liLAgU3RlYW1DTUTvvJp7MH3jgILor7fmioogc3RlYW1jbWQuZXhlIOaUvuWIsOi/memHjO+8jOaIlue8lui+kSBjb25maWdcXGdhbWVzLmpzb27jgIIiLCJTdGVhbVVzZXJFbXB0eSI6IlN0ZWFtIOeUqOaIt+WQjeS4uuepuuOAgiIsIlVwbG9hZGluZyI6Iuato+WcqOS4iuS8oCBBcHBJRCB7MH3vvIxTdGVhbUNNRCDot6/lvoTvvJp7MX0iLCJTdGVhbUNtZEZhaWxlZCI6IlN0ZWFtQ01EIOS4iuS8oCBBcHBJ"
+    "RCB7MH0g5aSx6LSl77yM6YCA5Ye656CBIHsxfeOAgui+k+WHuuebruW9le+8mnsyfSIsIlN0ZWFtVXNlclByb21wdCI6IlN0ZWFtIOeUqOaIt+WQjSIsIlN0ZWFtVXNlclJlcXVpcmVkIjoi55yf5a6e5LiK5Lyg6ZyA6KaB6L6T5YWlIFN0ZWFtIOeUqOaIt+WQjeOAgiIsIlRhc2tQbGFuIjoi5LiK5Lyg5Lu75Yqh6K6h5YiS77yaIiwiVGFza0xpbmUiOiItIEFwcElEIHswfSB8IHsxfSB8IHsyfSB8IHszfSB8IHs0fSIsIk9wZW5TdGVhbXdvcmtzIjoi546w5Zyo5omT5byA6L+Z5Liq6aG16Z2i5ZCX77yfKFkvTikiLCJQbGFuQ29tcGxldGUiOiLorqHliJLpooTop4jlrozmiJDjgIIiLCJTdGVhbUNtZFBhc3N3b3JkSGludCI6IuWmguaciemcgOimge+8jFN0ZWFtQ01EIOS8mue7p+e7reimgeaxgui+k+WFpeWvhueggeWSjCBTdGVhbSBHdWFyZCDpqozor4HnoIHjgIIiLCJQcmVwYXJpbmciOiLmraPlnKjlh4blpIcgQXBwSUQgezB977yaezF9IHsyfSB7M30iLCJHZW5lcmF0ZWRBcHBWZGYiOiLlt7LnlJ/miJAgYXBwIFZERu+8mnswfSIsIkJ1aWxkRGVzY3JpcHRpb24iOiLmnoTlu7rmj4/ov7DvvJp7MH0iLCJEcnlSdW5Ta2lwcGVkIjoi5bmy6LeR5qih5byP5bey6Lez6L+HIEFwcElEIHswfSDnmoQgU3RlYW1DTUQg5LiK5Lyg44CCIiwiVXBsb2FkRmluaXNoZWQiOiJBcHBJRCB7MH0g5LiK"
+    "5Lyg5a6M5oiQ44CC6L6T5Ye655uu5b2V77yaezF9IiwiRG9uZSI6Ij09PT09PT0g5a6M5oiQID09PT09PT0iLCJSZXF1aXJlZEZvcm1hdCI6IuaWh+S7tuWQjeW/hemhu+espuWQiOS7peS4i+agvOW8j++8miJ9"
+) -join ""
+$zhMessages = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($zhJsonBase64)) | ConvertFrom-Json
+$Script:Messages = @{
+    "en-US" = @{
+        InfoPrefix = "[INFO]"
+        WarnPrefix = "[WARN]"
+        ErrorPrefix = "[ERROR]"
+        Title = "======= Steam Windows Upload Tool ======="
+        PlanOnlyMode = "PlanOnly mode: no copy, extract, VDF generation, or upload."
+        DryRunMode = "DryRun mode: copy, extract, and VDF generation only; SteamCMD will not run."
+        InboxIntro = "Put one or more .zip packages into this folder:"
+        InboxOpen = "The folder will open now. Copy the packages there, then return to this window and press Enter."
+        InboxOpenFailed = "Could not open folder automatically: {0}"
+        InboxContinue = "Press Enter after copying packages"
+        InboxUnsupported = "Unsupported archive(s) in inbox: {0}. Please remove them and provide .zip files only."
+        InboxEmpty = "No .zip packages found in {0}."
+        InboxFound = "Found {0} package(s) in inbox."
+        MissingConfig = "Missing config file. A blank template was created at {0}. Please edit it with real game names, AppIDs, and DepotIDs, then run this tool again."
+        MissingGames = "Config file is missing the top-level 'games' object. Please edit {0}."
+        GameMissing = "Game '{0}' is not configured in {1}. Add a '{0}' entry under 'games'."
+        ReleaseMissing = "Package '{0}' is a {1} build, but config has no '{0}.{2}' section. Please add it with appId and depots before uploading."
+        FullRelease = "full release"
+        DemoRelease = "Demo"
+        AppIdMissing = "Config '{0}.{1}' is missing 'appId'. Please add the Steam AppID before uploading."
+        DepotsMissing = "Config '{0}.{1}' is missing 'depots'. Please add Win/Mac depot IDs before uploading."
+        DepotMissing = "Package '{0}' is for {1}, but config '{0}.{2}.depots.{1}' is missing. Please add the {1} depot ID before uploading."
+        PlaceholderConfig = "Config '{0}.{1}' is missing, empty, or still has placeholder AppID/DepotID. Please complete appId and depots.{2} in {3} before uploading."
+        UnsupportedArchive = "Unsupported archive '{0}'. Please provide .zip files named like Win_Game_1.2.3_Demo.zip."
+        InvalidFileName = "Invalid file name '{0}'. Expected: Win_Game_1.2.3.zip, Mac_Game_1.2.3.zip, Win_Game_1.2.3_Demo.zip, or Mac_Game_1.2.3_Demo.zip."
+        DuplicatePlatform = "Duplicate {0} package in task '{1}'."
+        RefuseClean = "Refusing to clean outside workspace: {0}"
+        NoEntry = "No {0} candidate found in '{1}'."
+        MultiEntry = "Multiple entry candidates found in '{0}': {1}. Please keep only one."
+        EntryOk = "{0} entry is already {1}."
+        EntryTargetExists = "Cannot rename '{0}' to '{1}' because target already exists."
+        EntryRenamed = "{0} entry renamed: {1} -> {2}"
+        Extracting = "Extracting {0} -> {1}"
+        SteamCmdMissing = "SteamCMD not found: {0}. Put steamcmd.exe there or edit config\games.json."
+        SteamUserEmpty = "Steam user is empty."
+        Uploading = "Uploading AppID {0} with {1}"
+        SteamCmdFailed = "SteamCMD failed for AppID {0} with exit code {1}. Output: {2}"
+        SteamUserPrompt = "Steam username"
+        SteamUserRequired = "Steam username is required for real uploads."
+        TaskPlan = "Upload task plan:"
+        TaskLine = "- AppID {0} | {1} | {2} | {3} | {4}"
+        OpenSteamworks = "Open this page now? (Y/N)"
+        PlanComplete = "Plan complete."
+        SteamCmdPasswordHint = "SteamCMD will ask for password and Steam Guard code if needed."
+        Preparing = "Preparing AppID {0}: {1} {2} {3}"
+        GeneratedAppVdf = "Generated app VDF: {0}"
+        BuildDescription = "Build description: {0}"
+        DryRunSkipped = "DryRun skipped SteamCMD for AppID {0}."
+        UploadFinished = "Upload finished for AppID {0}. Output: {1}"
+        Done = "======= Done ======="
+        RequiredFormat = "Required file name format:"
+    }
+    "zh-CN" = $zhMessages
+}
+function T {
+    param(
+        [string]$Key,
+        [object[]]$Values = @()
+    )
+
+    $pack = $Script:Messages[$Language]
+    if ($pack -is [hashtable]) {
+        $text = $pack[$Key]
+    } else {
+        $text = $pack.PSObject.Properties[$Key].Value
+    }
+    if ($Values.Count -gt 0) {
+        return [string]::Format($text, $Values)
+    }
+    return $text
+}
+
+function D {
+    param([string]$Base64)
+    return [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Base64))
+}
 
 function Write-Info {
     param([string]$Message)
-    Write-Host "[INFO] $Message" -ForegroundColor Cyan
+    $prefix = & T -Key "InfoPrefix"
+    Write-Host "$prefix $Message" -ForegroundColor Cyan
 }
 
 function Write-Warn {
     param([string]$Message)
-    Write-Host "[WARN] $Message" -ForegroundColor Yellow
+    $prefix = & T -Key "WarnPrefix"
+    Write-Host "$prefix $Message" -ForegroundColor Yellow
 }
 
 function Write-Err {
     param([string]$Message)
-    Write-Host "[ERROR] $Message" -ForegroundColor Red
+    $prefix = & T -Key "ErrorPrefix"
+    Write-Host "$prefix $Message" -ForegroundColor Red
 }
 
 function Split-DraggedPaths {
@@ -69,38 +161,38 @@ function Get-InboxPackagePaths {
     New-Item -ItemType Directory -Path $Script:Inbox -Force | Out-Null
 
     Write-Host ""
-    Write-Host "Put one or more .zip packages into this folder:"
+    Write-Host $(& T -Key "InboxIntro")
     Write-Host "  $Script:Inbox" -ForegroundColor Yellow
     Write-Host ""
-    Write-Host "The folder will open now. Copy the packages there, then return to this window and press Enter."
+    Write-Host $(& T -Key "InboxOpen")
 
     try {
         Start-Process explorer.exe -ArgumentList "`"$Script:Inbox`""
     }
     catch {
-        Write-Warn "Could not open folder automatically: $($_.Exception.Message)"
+        Write-Warn $(& T -Key "InboxOpenFailed" -Values @($_.Exception.Message))
     }
 
-    Read-Host "Press Enter after copying packages"
+    Read-Host $(& T -Key "InboxContinue")
 
     $archives = @(Get-ChildItem -LiteralPath $Script:Inbox -File -Filter "*.zip" | Sort-Object Name)
     $unsupported = @(Get-ChildItem -LiteralPath $Script:Inbox -File | Where-Object { $_.Extension -in @(".rar", ".7z") } | Sort-Object Name)
     if ($unsupported.Count -gt 0) {
         $names = ($unsupported | ForEach-Object { $_.Name }) -join ", "
-        throw "Unsupported archive(s) in inbox: $names. Please remove them and provide .zip files only."
+        throw $(& T -Key "InboxUnsupported" -Values @($names))
     }
     if ($archives.Count -eq 0) {
-        throw "No .zip packages found in $Script:Inbox."
+        throw $(& T -Key "InboxEmpty" -Values @($Script:Inbox))
     }
 
-    Write-Info "Found $($archives.Count) package(s) in inbox."
+    Write-Info $(& T -Key "InboxFound" -Values @($archives.Count))
     return @($archives | ForEach-Object { $_.FullName })
 }
 
 function Load-Config {
     if (-not (Test-Path -LiteralPath $Script:ConfigPath)) {
         New-EmptyConfig -Path $Script:ConfigPath
-        throw "Missing config file. A blank template was created at $Script:ConfigPath. Please edit it with real game names, AppIDs, and DepotIDs, then run this tool again."
+        throw $(& T -Key "MissingConfig" -Values @($Script:ConfigPath))
     }
 
     $raw = Get-Content -LiteralPath $Script:ConfigPath -Raw -Encoding UTF8
@@ -165,36 +257,36 @@ function Resolve-GameConfig {
     )
 
     if (-not (Test-JsonProperty -Object $Config -Name "games")) {
-        throw "Config file is missing the top-level 'games' object. Please edit $Script:ConfigPath."
+        throw $(& T -Key "MissingGames" -Values @($Script:ConfigPath))
     }
 
     if (-not (Test-JsonProperty -Object $Config.games -Name $Game)) {
-        throw "Game '$Game' is not configured in $Script:ConfigPath. Add a '$Game' entry under 'games'."
+        throw $(& T -Key "GameMissing" -Values @($Game, $Script:ConfigPath))
     }
 
     $releaseKey = if ($IsDemo) { "demo" } else { "full" }
-    $releaseLabel = if ($IsDemo) { "Demo" } else { "full release" }
+    $releaseLabel = if ($IsDemo) { T -Key "DemoRelease" } else { T -Key "FullRelease" }
     $gameConfig = $Config.games.$Game
     if (-not (Test-JsonProperty -Object $gameConfig -Name $releaseKey)) {
-        throw "Package '$Game' is a $releaseLabel build, but config has no '$Game.$releaseKey' section. Please add it with appId and depots before uploading."
+        throw $(& T -Key "ReleaseMissing" -Values @($Game, $releaseLabel, $releaseKey))
     }
 
     $releaseConfig = $gameConfig.$releaseKey
     if (-not (Test-JsonProperty -Object $releaseConfig -Name "appId")) {
-        throw "Config '$Game.$releaseKey' is missing 'appId'. Please add the Steam AppID before uploading."
+        throw $(& T -Key "AppIdMissing" -Values @($Game, $releaseKey))
     }
     if (-not (Test-JsonProperty -Object $releaseConfig -Name "depots")) {
-        throw "Config '$Game.$releaseKey' is missing 'depots'. Please add Win/Mac depot IDs before uploading."
+        throw $(& T -Key "DepotsMissing" -Values @($Game, $releaseKey))
     }
     if (-not (Test-JsonProperty -Object $releaseConfig.depots -Name $Platform)) {
-        throw "Package '$Game' is for $Platform, but config '$Game.$releaseKey.depots.$Platform' is missing. Please add the $Platform depot ID before uploading."
+        throw $(& T -Key "DepotMissing" -Values @($Game, $Platform, $releaseKey))
     }
 
     $appId = [string]$releaseConfig.appId
     $depotId = [string]$releaseConfig.depots.$Platform
     if ((Test-Placeholder $appId) -or (Test-Placeholder $depotId)) {
         if (-not $AllowPlaceholderConfig) {
-            throw "Config '$Game.$releaseKey' is missing, empty, or still has placeholder AppID/DepotID. Please complete appId and depots.$Platform in $Script:ConfigPath before uploading."
+            throw $(& T -Key "PlaceholderConfig" -Values @($Game, $releaseKey, $Platform, $Script:ConfigPath))
         }
     }
 
@@ -215,12 +307,12 @@ function Parse-Package {
     $file = Get-Item -LiteralPath $resolved.Path
 
     if ($file.Extension -ieq ".rar") {
-        throw "Unsupported archive '$($file.Name)'. Please provide .zip files named like Win_Game_1.2.3_Demo.zip."
+        throw $(& T -Key "UnsupportedArchive" -Values @($file.Name))
     }
 
     $match = [regex]::Match($file.Name, $Script:NamePattern)
     if (-not $match.Success) {
-        throw "Invalid file name '$($file.Name)'. Expected: Win_Game_1.2.3.zip, Mac_Game_1.2.3.zip, Win_Game_1.2.3_Demo.zip, or Mac_Game_1.2.3_Demo.zip."
+        throw $(& T -Key "InvalidFileName" -Values @($file.Name))
     }
 
     $platform = $match.Groups[1].Value
@@ -261,7 +353,7 @@ function Group-Packages {
 
         $existingPlatform = @($groups[$key].Packages | Where-Object { $_.Platform -eq $pkg.Platform })
         if ($existingPlatform.Count -gt 0) {
-            throw "Duplicate $($pkg.Platform) package in task '$key'."
+            throw $(& T -Key "DuplicatePlatform" -Values @($pkg.Platform, $key))
         }
         $groups[$key].Packages += $pkg
     }
@@ -280,7 +372,7 @@ function Ensure-CleanDirectory {
     $workspaceRoot = [System.IO.Path]::GetFullPath($Script:Workspace)
     $target = [System.IO.Path]::GetFullPath($Path)
     if (-not $target.StartsWith($workspaceRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
-        throw "Refusing to clean outside workspace: $Path"
+        throw $(& T -Key "RefuseClean" -Values @($Path))
     }
 
     Get-ChildItem -LiteralPath $Path -Force | Remove-Item -Recurse -Force
@@ -326,16 +418,16 @@ function Ensure-EntryName {
     }
 
     if ($candidates.Count -eq 0) {
-        throw "No $targetName candidate found in '$root'."
+        throw $(& T -Key "NoEntry" -Values @($targetName, $root))
     }
     if ($candidates.Count -gt 1) {
         $names = ($candidates | ForEach-Object { $_.Name }) -join ", "
-        throw "Multiple entry candidates found in '$root': $names. Please keep only one."
+        throw $(& T -Key "MultiEntry" -Values @($root, $names))
     }
 
     $entry = $candidates[0]
     if ($entry.Name -eq $targetName) {
-        Write-Info "$Platform entry is already $targetName."
+        Write-Info $(& T -Key "EntryOk" -Values @($Platform, $targetName))
         return [pscustomobject]@{
             Changed = $false
             Before = $entry.Name
@@ -347,11 +439,11 @@ function Ensure-EntryName {
     $parentDir = if ($entry.PSIsContainer) { $entry.Parent.FullName } else { $entry.DirectoryName }
     $targetPath = Join-Path $parentDir $targetName
     if (Test-Path -LiteralPath $targetPath) {
-        throw "Cannot rename '$($entry.Name)' to '$targetName' because target already exists."
+        throw $(& T -Key "EntryTargetExists" -Values @($entry.Name, $targetName))
     }
 
     Rename-Item -LiteralPath $entry.FullName -NewName $targetName
-    Write-Warn "$Platform entry renamed: $($entry.Name) -> $targetName"
+    Write-Warn $(& T -Key "EntryRenamed" -Values @($Platform, $entry.Name, $targetName))
     return [pscustomobject]@{
         Changed = $true
         Before = $entry.Name
@@ -372,7 +464,7 @@ function Expand-Package {
     $contentDir = Join-Path (Join-Path (Join-Path $Script:Workspace "content") $Package.AppId) $platformDir
     Ensure-CleanDirectory -Path $contentDir
 
-    Write-Info "Extracting $($Package.FileName) -> $contentDir"
+    Write-Info $(& T -Key "Extracting" -Values @($Package.FileName, $contentDir))
     Expand-Archive -LiteralPath $archiveCopy -DestinationPath $contentDir -Force
     Remove-MacJunk -Path $contentDir
     $entry = Ensure-EntryName -ContentDir $contentDir -Platform $Package.Platform
@@ -505,18 +597,18 @@ function Invoke-SteamUpload {
     }
 
     if (-not (Test-Path -LiteralPath $steamCmdPath)) {
-        throw "SteamCMD not found: $steamCmdPath. Put steamcmd.exe there or edit config\games.json."
+        throw $(& T -Key "SteamCmdMissing" -Values @($steamCmdPath))
     }
 
     if ([string]::IsNullOrWhiteSpace($SteamUser)) {
-        throw "Steam user is empty."
+        throw $(& T -Key "SteamUserEmpty")
     }
 
-    Write-Info "Uploading AppID $($Task.AppId) with $steamCmdPath"
+    Write-Info $(& T -Key "Uploading" -Values @($Task.AppId, $steamCmdPath))
     & $steamCmdPath +login $SteamUser +run_app_build $VdfInfo.AppVdf +quit
     $exitCode = $LASTEXITCODE
     if ($exitCode -ne 0) {
-        throw "SteamCMD failed for AppID $($Task.AppId) with exit code $exitCode. Output: $($VdfInfo.OutputDir)"
+        throw $(& T -Key "SteamCmdFailed" -Values @($Task.AppId, $exitCode, $VdfInfo.OutputDir))
     }
 }
 
@@ -528,9 +620,9 @@ function Get-SteamUser {
     }
 
     Write-Host ""
-    $user = Read-Host "Steam username"
+    $user = Read-Host $(& T -Key "SteamUserPrompt")
     if ([string]::IsNullOrWhiteSpace($user)) {
-        throw "Steam username is required for real uploads."
+        throw $(& T -Key "SteamUserRequired")
     }
     return $user.Trim()
 }
@@ -539,10 +631,10 @@ function Show-Plan {
     param([object[]]$Tasks)
 
     Write-Host ""
-    Write-Host "Upload task plan:"
+    Write-Host $(& T -Key "TaskPlan")
     foreach ($task in $Tasks) {
         $platforms = ($task.Packages | Sort-Object Platform | ForEach-Object { "$($_.Platform):Depot $($_.DepotId)" }) -join ", "
-        Write-Host "- AppID $($task.AppId) | $($task.Game) | $($task.Version) | $($task.ReleaseKey) | $platforms"
+        Write-Host $(& T -Key "TaskLine" -Values @($task.AppId, $task.Game, $task.Version, $task.ReleaseKey, $platforms))
     }
 }
 
@@ -555,7 +647,7 @@ function Prompt-OpenSteamworks {
     foreach ($task in $SucceededTasks) {
         $url = "https://partner.steamgames.com/apps/builds/$($task.AppId)"
         Write-Host "Steamworks: $url"
-        $answer = Read-Host "Open this page now? (Y/N)"
+        $answer = Read-Host $(& T -Key "OpenSteamworks")
         if ($answer -match '^(y|yes)$') {
             Start-Process $url
         }
@@ -563,9 +655,9 @@ function Prompt-OpenSteamworks {
 }
 
 try {
-    Write-Host "======= Steam Windows Upload Tool =======" -ForegroundColor Green
-    if ($PlanOnly) { Write-Warn "PlanOnly mode: no copy, extract, VDF generation, or upload." }
-    elseif ($DryRun) { Write-Warn "DryRun mode: copy, extract, and VDF generation only; SteamCMD will not run." }
+    Write-Host $(& T -Key "Title") -ForegroundColor Green
+    if ($PlanOnly) { Write-Warn $(& T -Key "PlanOnlyMode") }
+    elseif ($DryRun) { Write-Warn $(& T -Key "DryRunMode") }
 
     $config = Load-Config
     $paths = Get-PackagePaths
@@ -575,58 +667,74 @@ try {
     }
 
     Write-Host ""
-    $packages | Sort-Object Game, ReleaseKey, Version, Platform |
-        Format-Table Platform, Game, Version, ReleaseKey, AppId, DepotId, FileName -AutoSize
+    if ($Language -eq "zh-CN") {
+        $packages | Sort-Object Game, ReleaseKey, Version, Platform |
+            Select-Object @{Name=(D "5bmz5Y+w"); Expression={$_.Platform}},
+                          @{Name=(D "5ri45oiP"); Expression={$_.Game}},
+                          @{Name=(D "54mI5pys"); Expression={$_.Version}},
+                          @{Name=(D "57G75Z6L"); Expression={$_.ReleaseKey}},
+                          @{Name="AppID"; Expression={$_.AppId}},
+                          @{Name="DepotID"; Expression={$_.DepotId}},
+                          @{Name=(D "5paH5Lu25ZCN"); Expression={$_.FileName}} |
+            Format-Table -AutoSize
+    } else {
+        $packages | Sort-Object Game, ReleaseKey, Version, Platform |
+            Format-Table Platform, Game, Version, ReleaseKey, AppId, DepotId, FileName -AutoSize
+    }
 
     $tasks = Group-Packages -Packages $packages
     Show-Plan -Tasks $tasks
 
     if ($PlanOnly) {
-        Write-Info "Plan complete."
+        Write-Info $(& T -Key "PlanComplete")
         exit 0
     }
 
     $uploadSteamUser = $null
     if (-not $DryRun) {
         $uploadSteamUser = Get-SteamUser -ProvidedSteamUser $SteamUser
-        Write-Warn "SteamCMD will ask for password and Steam Guard code if needed."
+        Write-Warn $(& T -Key "SteamCmdPasswordHint")
     }
 
     $succeeded = @()
     foreach ($task in $tasks) {
         Write-Host ""
-        Write-Info "Preparing AppID $($task.AppId): $($task.Game) $($task.Version) $($task.ReleaseKey)"
+        Write-Info $(& T -Key "Preparing" -Values @($task.AppId, $task.Game, $task.Version, $task.ReleaseKey))
         $prepared = @()
         foreach ($pkg in $task.Packages) {
             $prepared += Expand-Package -Package $pkg
         }
 
         $vdfInfo = New-VdfFiles -Task $task -PreparedPackages $prepared -Config $config
-        Write-Info "Generated app VDF: $($vdfInfo.AppVdf)"
-        Write-Info "Build description: $($vdfInfo.Description)"
+        Write-Info $(& T -Key "GeneratedAppVdf" -Values @($vdfInfo.AppVdf))
+        Write-Info $(& T -Key "BuildDescription" -Values @($vdfInfo.Description))
 
         if ($DryRun) {
-            Write-Warn "DryRun skipped SteamCMD for AppID $($task.AppId)."
+            Write-Warn $(& T -Key "DryRunSkipped" -Values @($task.AppId))
             $succeeded += $task
             continue
         }
 
         Invoke-SteamUpload -Task $task -VdfInfo $vdfInfo -Config $config -SteamUser $uploadSteamUser
-        Write-Info "Upload finished for AppID $($task.AppId). Output: $($vdfInfo.OutputDir)"
+        Write-Info $(& T -Key "UploadFinished" -Values @($task.AppId, $vdfInfo.OutputDir))
         $succeeded += $task
     }
 
     Prompt-OpenSteamworks -SucceededTasks $succeeded
     Write-Host ""
-    Write-Host "======= Done =======" -ForegroundColor Green
+    Write-Host $(& T -Key "Done") -ForegroundColor Green
 }
 catch {
     Write-Err $_.Exception.Message
     Write-Host ""
-    Write-Host "Required file name format:"
+    Write-Host $(& T -Key "RequiredFormat")
     Write-Host "  Win_GameName_1.2.3.zip"
     Write-Host "  Mac_GameName_1.2.3.zip"
     Write-Host "  Win_GameName_1.2.3_Demo.zip"
     Write-Host "  Mac_GameName_1.2.3_Demo.zip"
     exit 1
 }
+
+
+
+

@@ -61,15 +61,18 @@ After extraction, it checks the entry name:
 Double-click:
 
 ```text
-UploadSteamBuild.bat
+UploadSteamBuild.zh-CN.bat
+UploadSteamBuild.en-US.bat
 ```
+
+`UploadSteamBuild.bat` is kept as a Chinese default entry for compatibility.
 
 The script opens `Win/inbox`. Copy one or more zip packages into that folder, return to the terminal window, and press Enter. The script scans every `.zip` in `Win/inbox`.
 
 Preview only:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\Win\UploadSteamBuild.ps1 -PackagePath .\Build\Win_FactorZoo_0.0.0_Demo.zip,.\Build\Mac_FactorZoo_0.0.0_Demo.zip -PlanOnly
+powershell -ExecutionPolicy Bypass -File .\Win\UploadSteamBuild.ps1 -Language zh-CN -PackagePath .\Build\Win_FactorZoo_0.0.0_Demo.zip,.\Build\Mac_FactorZoo_0.0.0_Demo.zip -PlanOnly
 ```
 
 Use a different config file:
