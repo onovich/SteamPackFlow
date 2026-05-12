@@ -2,6 +2,7 @@
 param(
     [string[]]$PackagePath,
     [string]$SteamUser,
+    [string]$ConfigPath,
     [switch]$PlanOnly,
     [switch]$DryRun,
     [switch]$AllowPlaceholderConfig
@@ -11,7 +12,7 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $Script:Root = Split-Path -Parent $MyInvocation.MyCommand.Path
-$Script:ConfigPath = Join-Path $Script:Root "config\games.json"
+$Script:ConfigPath = if ([string]::IsNullOrWhiteSpace($ConfigPath)) { Join-Path $Script:Root "config\games.json" } else { $ConfigPath }
 $Script:Workspace = Join-Path $Script:Root "workspace"
 $Script:NamePattern = '^(Win|Mac)_([A-Za-z0-9]+)_([0-9]+\.[0-9]+\.[0-9]+)(_Demo)?\.zip$'
 
@@ -84,6 +85,16 @@ function Test-Placeholder {
     return [string]::IsNullOrWhiteSpace($Value) -or $Value -like "TODO*"
 }
 
+function Test-JsonProperty {
+    param(
+        [object]$Object,
+        [string]$Name
+    )
+
+    if ($null -eq $Object) { return $false }
+    return $Object.PSObject.Properties.Name.Contains($Name)
+}
+
 function Resolve-GameConfig {
     param(
         [object]$Config,
@@ -92,26 +103,37 @@ function Resolve-GameConfig {
         [string]$Platform
     )
 
-    if (-not $Config.games.PSObject.Properties.Name.Contains($Game)) {
-        throw "Game '$Game' is not configured in $Script:ConfigPath."
+    if (-not (Test-JsonProperty -Object $Config -Name "games")) {
+        throw "Config file is missing the top-level 'games' object. Please edit $Script:ConfigPath."
+    }
+
+    if (-not (Test-JsonProperty -Object $Config.games -Name $Game)) {
+        throw "Game '$Game' is not configured in $Script:ConfigPath. Add a '$Game' entry under 'games'."
     }
 
     $releaseKey = if ($IsDemo) { "demo" } else { "full" }
+    $releaseLabel = if ($IsDemo) { "Demo" } else { "full release" }
     $gameConfig = $Config.games.$Game
-    if (-not $gameConfig.PSObject.Properties.Name.Contains($releaseKey)) {
-        throw "Game '$Game' does not have '$releaseKey' config."
+    if (-not (Test-JsonProperty -Object $gameConfig -Name $releaseKey)) {
+        throw "Package '$Game' is a $releaseLabel build, but config has no '$Game.$releaseKey' section. Please add it with appId and depots before uploading."
     }
 
     $releaseConfig = $gameConfig.$releaseKey
-    if (-not $releaseConfig.depots.PSObject.Properties.Name.Contains($Platform)) {
-        throw "Game '$Game' '$releaseKey' does not have a $Platform depot config."
+    if (-not (Test-JsonProperty -Object $releaseConfig -Name "appId")) {
+        throw "Config '$Game.$releaseKey' is missing 'appId'. Please add the Steam AppID before uploading."
+    }
+    if (-not (Test-JsonProperty -Object $releaseConfig -Name "depots")) {
+        throw "Config '$Game.$releaseKey' is missing 'depots'. Please add Win/Mac depot IDs before uploading."
+    }
+    if (-not (Test-JsonProperty -Object $releaseConfig.depots -Name $Platform)) {
+        throw "Package '$Game' is for $Platform, but config '$Game.$releaseKey.depots.$Platform' is missing. Please add the $Platform depot ID before uploading."
     }
 
     $appId = [string]$releaseConfig.appId
     $depotId = [string]$releaseConfig.depots.$Platform
     if ((Test-Placeholder $appId) -or (Test-Placeholder $depotId)) {
         if (-not $AllowPlaceholderConfig) {
-            throw "Game '$Game' '$releaseKey' has placeholder AppID/DepotID. Edit $Script:ConfigPath first, or use -AllowPlaceholderConfig for parsing tests."
+            throw "Config '$Game.$releaseKey' is missing, empty, or still has placeholder AppID/DepotID. Please complete appId and depots.$Platform in $Script:ConfigPath before uploading."
         }
     }
 

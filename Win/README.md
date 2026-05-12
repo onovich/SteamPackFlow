@@ -25,6 +25,8 @@ Each game has two release groups:
 - `full`: used when the package filename does not end with `_Demo`.
 - `demo`: used when the package filename ends with `_Demo`.
 
+Only configure release groups that actually exist, but the uploaded package must have a matching group. For example, if a user uploads `Win_FactorZoo_1.0.0.zip`, the script requires `games.FactorZoo.full`; if only `games.FactorZoo.demo` exists, it stops before extracting or uploading and asks the user to complete the config.
+
 Each release group contains:
 
 - `appId`: the Steam AppID for that exact game and release type. Demo and full releases usually have different AppIDs.
@@ -67,6 +69,12 @@ Preview only:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\Win\UploadSteamBuild.ps1 -PackagePath .\Build\Win_FactorZoo_0.0.0_Demo.zip,.\Build\Mac_FactorZoo_0.0.0_Demo.zip -PlanOnly
+```
+
+Use a different config file:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Win\UploadSteamBuild.ps1 -ConfigPath .\Win\config\games.local.json
 ```
 
 Generate workspace and VDF files without uploading:
