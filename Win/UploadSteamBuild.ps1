@@ -190,7 +190,7 @@ function Get-InboxPackagePaths {
     }
 
     while ($true) {
-        Read-Host $(& T -Key "InboxContinue")
+        $null = Read-Host $(& T -Key "InboxContinue")
 
         $files = @(Get-ChildItem -LiteralPath $Script:Inbox -File | Sort-Object Name)
         $archives = @($files | Where-Object { $_.Extension -ieq ".zip" })
@@ -250,7 +250,7 @@ function Load-ConfigWithRetry {
 
             Write-Err $_.Exception.Message
             Write-Warn (Get-LocalizedText -English "Fix the config, then press Enter to reload it." -ChineseBase64 "6K+35L+u5pS56YWN572u5ZCO5oyJIEVudGVyIOmHjeaWsOivu+WPluOAgg==")
-            Read-Host
+            $null = Read-Host
         }
     }
 }
@@ -434,7 +434,7 @@ function Resolve-PackagesWithRetry {
             Write-Host "    $($err.Message)" -ForegroundColor Yellow
         }
         Write-Warn (Get-LocalizedText -English "Fix the issues above, then press Enter to check again." -ChineseBase64 "6K+35L+u5aSN5LiK6L+w6Zeu6aKY5ZCO5oyJIEVudGVyIOmHjeaWsOajgOafpeOAgg==")
-        Read-Host
+        $null = Read-Host
         $Config = Load-ConfigWithRetry
         $Paths = Get-InboxPackagePaths
     }
