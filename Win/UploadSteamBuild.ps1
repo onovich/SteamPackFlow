@@ -693,6 +693,65 @@ function Group-Packages {
     return @($groups.Values | ForEach-Object { [pscustomobject]$_ })
 }
 
+function Get-DoneArchiveDestinationPath {
+    param(
+        [string]$Directory,
+        [string]$FileName
+    )
+
+    $candidate = Join-Path $Directory $FileName
+    if (-not (Test-Path -LiteralPath $candidate)) {
+        return $candidate
+    }
+
+    $stem = [System.IO.Path]::GetFileNameWithoutExtension($FileName)
+    $extension = [System.IO.Path]::GetExtension($FileName)
+    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+    $index = 1
+    do {
+        $candidate = Join-Path $Directory ("{0}_{1}_{2}{3}" -f $stem, $timestamp, $index, $extension)
+        $index++
+    }
+    while (Test-Path -LiteralPath $candidate)
+
+    return $candidate
+}
+
+function Move-SucceededInboxPackagesToDone {
+    param([object[]]$Packages)
+
+    $inboxRoot = [System.IO.Path]::GetFullPath($Script:Inbox).TrimEnd('\\')
+    $doneDir = Join-Path $Script:Inbox "done"
+    $movedPackages = New-Object System.Collections.Generic.List[string]
+
+    foreach ($pkg in @($Packages)) {
+        $sourcePath = [string]$pkg.SourcePath
+        if ([string]::IsNullOrWhiteSpace($sourcePath)) {
+            continue
+        }
+
+        $sourceFullPath = [System.IO.Path]::GetFullPath($sourcePath)
+        $sourceDir = [System.IO.Path]::GetDirectoryName($sourceFullPath).TrimEnd('\\')
+        if (-not [string]::Equals($sourceDir, $inboxRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+            continue
+        }
+
+        try {
+            New-Item -ItemType Directory -Path $doneDir -Force | Out-Null
+            $destinationPath = Get-DoneArchiveDestinationPath -Directory $doneDir -FileName ([System.IO.Path]::GetFileName($sourceFullPath))
+            Move-Item -LiteralPath $sourceFullPath -Destination $destinationPath
+            $movedPackages.Add([System.IO.Path]::GetFileName($destinationPath))
+        }
+        catch {
+            Write-Warn ((Get-LocalizedText -English "Upload succeeded, but failed to move inbox archive to done: {0}. {1}" -ChineseBase64 "5LiK5Lyg5oiQ5Yqf77yM5L2G5oqKINaW5Lu25aS56YeM55qEIGluYm94IOWOh+e8qeWMheenu+WIsCBkb25lIOWksei0pe+8mnswfOOAggB7MX0=") -f $pkg.FileName, $_.Exception.Message)
+        }
+    }
+
+    if ($movedPackages.Count -gt 0) {
+        Write-Info ((Get-LocalizedText -English "Moved uploaded inbox package(s) to done: {0}" -ChineseBase64 "5bey5bCG5LiK5Lyg5oiQ5Yqf55qEIGluYm94IOWOh+e8qeWMheenu+WIsCBkb25l77yaezB9") -f (($movedPackages | Sort-Object) -join ", "))
+    }
+}
+
 function Ensure-CleanDirectory {
     param([string]$Path)
 
@@ -1342,6 +1401,7 @@ try {
             try {
                 Invoke-SteamUpload -Task $task -VdfInfo $vdfInfo -Config $config -SteamUser $uploadSteamUser
                 Write-Info $(& T -Key "UploadFinished" -Values @($task.AppId, $vdfInfo.OutputDir))
+                Move-SucceededInboxPackagesToDone -Packages $task.Packages
                 $succeeded += $task
             }
             catch {

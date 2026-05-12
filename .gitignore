@@ -4,6 +4,10 @@ Build/
 *.rar
 *.7z
 
+# Non-distributed legacy workflow and internal notes
+Mac/
+docs/
+
 # SteamCMD generated content, cache, and logs
 **/content/
 **/output/
