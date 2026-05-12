@@ -69,6 +69,8 @@ UploadSteamBuild.en-US.bat
 
 The script opens `Win/inbox`. Copy one or more zip packages into that folder, return to the terminal window, and press Enter. The script scans every `.zip` in `Win/inbox`.
 
+If any package name does not match the required rule, the script lists the bad files and waits. Rename or remove them in `Win/inbox`, then press Enter again. It will not continue to extraction or upload until every package name is valid.
+
 Preview only:
 
 ```powershell

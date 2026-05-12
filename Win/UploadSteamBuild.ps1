@@ -106,6 +106,18 @@ function D {
     return [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Base64))
 }
 
+function Get-LocalizedText {
+    param(
+        [string]$English,
+        [string]$ChineseBase64
+    )
+
+    if ($Language -eq "zh-CN") {
+        return D $ChineseBase64
+    }
+    return $English
+}
+
 function Write-Info {
     param([string]$Message)
     $prefix = & T -Key "InfoPrefix"
@@ -173,20 +185,43 @@ function Get-InboxPackagePaths {
         Write-Warn $(& T -Key "InboxOpenFailed" -Values @($_.Exception.Message))
     }
 
-    Read-Host $(& T -Key "InboxContinue")
+    while ($true) {
+        Read-Host $(& T -Key "InboxContinue")
 
-    $archives = @(Get-ChildItem -LiteralPath $Script:Inbox -File -Filter "*.zip" | Sort-Object Name)
-    $unsupported = @(Get-ChildItem -LiteralPath $Script:Inbox -File | Where-Object { $_.Extension -in @(".rar", ".7z") } | Sort-Object Name)
-    if ($unsupported.Count -gt 0) {
-        $names = ($unsupported | ForEach-Object { $_.Name }) -join ", "
-        throw $(& T -Key "InboxUnsupported" -Values @($names))
-    }
-    if ($archives.Count -eq 0) {
-        throw $(& T -Key "InboxEmpty" -Values @($Script:Inbox))
-    }
+        $files = @(Get-ChildItem -LiteralPath $Script:Inbox -File | Sort-Object Name)
+        $archives = @($files | Where-Object { $_.Extension -ieq ".zip" })
+        $unsupported = @($files | Where-Object { $_.Extension -in @(".rar", ".7z") })
+        $badNames = @($archives | Where-Object { -not [regex]::Match($_.Name, $Script:NamePattern).Success })
 
-    Write-Info $(& T -Key "InboxFound" -Values @($archives.Count))
-    return @($archives | ForEach-Object { $_.FullName })
+        if ($unsupported.Count -gt 0) {
+            Write-Err (Get-LocalizedText -English "Unsupported archive format:" -ChineseBase64 "5Lul5LiL5Y6L57yp5YyF5qC85byP5LiN5pSv5oyB77ya")
+            $unsupported | ForEach-Object { Write-Host "  $($_.Name)" -ForegroundColor Yellow }
+        }
+
+        if ($badNames.Count -gt 0) {
+            Write-Err (Get-LocalizedText -English "Invalid file name(s):" -ChineseBase64 "5Lul5LiL5paH5Lu25ZCN5LiN56ym5ZCI6KeE5YiZ77ya")
+            $badNames | ForEach-Object { Write-Host "  $($_.Name)" -ForegroundColor Yellow }
+            Write-Host ""
+            Write-Host $(& T -Key "RequiredFormat")
+            Write-Host "  Win_GameName_1.2.3.zip"
+            Write-Host "  Mac_GameName_1.2.3.zip"
+            Write-Host "  Win_GameName_1.2.3_Demo.zip"
+            Write-Host "  Mac_GameName_1.2.3_Demo.zip"
+        }
+
+        if ($archives.Count -eq 0) {
+            Write-Warn (Get-LocalizedText -English "No .zip packages found. Copy packages there, then press Enter to scan again." -ChineseBase64 "5pyq5om+5YiwIC56aXAg5YyF44CC6K+35aSN5Yi25YyF5L2T5ZCO5oyJIEVudGVyIOmHjeaWsOaJq+aPj+OAgg==")
+            continue
+        }
+
+        if ($unsupported.Count -gt 0 -or $badNames.Count -gt 0) {
+            Write-Warn (Get-LocalizedText -English "Fix or remove the files above so every zip follows the required naming rule, then press Enter to scan again." -ChineseBase64 "6K+35L+u5pS5L+enu+mZpOS4iui/sOaWh+S7tu+8jOehruS/neaJgOaciSB6aXAg5paH5Lu26YO956ym5ZCI5ZG95ZCN6KeE5YiZ77yM54S25ZCO5oyJIEVudGVyIOmHjeaWsOaJq+aPj+OAgg==")
+            continue
+        }
+
+        Write-Info $(& T -Key "InboxFound" -Values @($archives.Count))
+        return @($archives | ForEach-Object { $_.FullName })
+    }
 }
 
 function Load-Config {
