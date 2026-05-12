@@ -164,6 +164,9 @@ function Get-PackagePaths {
                 }
             }
         }
+        if ($paths.Count -eq 0) {
+            throw (Get-LocalizedText -English "No valid package path was provided. Put zip files into Win/inbox, or pass zip files with -PackagePath." -ChineseBase64 "5rKh5pyJ5o+Q5L6b5pyJ5pWI55qE5YyF6Lev5b6E44CC6K+35oqKIHppcCDmlL7lhaUgV2luL2luYm9477yM5oiW6YCa6L+HIC1QYWNrYWdlUGF0aCDmjIflrpogemlwIOaWh+S7tuOAgg==")
+        }
         return $paths.ToArray()
     }
 
@@ -356,6 +359,10 @@ function Parse-Package {
         [object]$Config
     )
 
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        throw (Get-LocalizedText -English "Package path is empty. Make sure the file exists, or copy it into Win/inbox and scan again." -ChineseBase64 "5YyF6Lev5b6E5Li656m644CC6K+356Gu6K6k5paH5Lu25a2Y5Zyo77yM5oiW6YeN5paw5aSN5Yi25YiwIFdpbi9pbmJveCDlkI7lho3miavmj4/jgII=")
+    }
+
     $resolved = Resolve-Path -LiteralPath $Path -ErrorAction Stop
     $file = Get-Item -LiteralPath $resolved.Path
 
@@ -421,7 +428,7 @@ function Resolve-PackagesWithRetry {
             throw $message
         }
 
-        Write-Err (Get-LocalizedText -English "Config or package validation still has problems:" -ChineseBase64 "6YWN572u5LuN5pyJ6Zeu6aKY77ya")
+        Write-Err (Get-LocalizedText -English "Config or package validation still has problems:" -ChineseBase64 "6YWN572u5oiW5YyF5paH5Lu25LuN5pyJ6Zeu6aKY77ya")
         foreach ($err in $errors) {
             Write-Host "  $($err.Path)" -ForegroundColor Yellow
             Write-Host "    $($err.Message)" -ForegroundColor Yellow
