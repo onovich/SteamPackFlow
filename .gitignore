@@ -19,6 +19,9 @@ Mac/*.dylib
 Mac/Frameworks/
 Mac/public/
 Mac/update_hosts_cached.vdf
+Win/builder/*
+!Win/builder/.gitkeep
+Win/workspace/
 
 # Platform/editor noise
 .DS_Store
