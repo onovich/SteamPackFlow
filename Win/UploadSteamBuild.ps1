@@ -512,7 +512,8 @@ function Ensure-EntryName {
     $root = Get-EffectiveContentRoot -Path $ContentDir
     if ($Platform -eq "Win") {
         $targetName = "game.exe"
-        $candidates = @(Get-ChildItem -LiteralPath $root -Force -File -Filter "*.exe")
+        $candidates = @(Get-ChildItem -LiteralPath $root -Force -File -Filter "*.exe" |
+            Where-Object { $_.Name -notlike "UnityCrashHandler*.exe" -and $_.Name -notlike "crashhandler*.exe" })
     } else {
         $targetName = "game.app"
         $rootItem = Get-Item -LiteralPath $root
