@@ -8,8 +8,30 @@ This directory contains the Windows upload workflow for SteamCMD.
 2. Edit `Win/config/games.json`.
 3. Fill each game's `appId`, `Win` depot ID, and `Mac` depot ID for both `full` and `demo` releases.
 4. Keep `setLive` as `test` until you intentionally want to publish to another branch.
+5. Steam username is entered at runtime. Password and Steam Guard code are handled by SteamCMD in the terminal.
 
 `games.example.json` is a small reference. `games.json` is the file used by the script.
+
+## Config fields
+
+`setLive` is the Steam branch that the uploaded build should be assigned to. The current default is `test`, matching the existing Mac workflow. Leave it empty if you want SteamCMD to upload the build without setting a live branch.
+
+`steamCmdPath` is the path to `steamcmd.exe`. Relative paths are resolved from the `Win` directory, so `builder\\steamcmd.exe` means `Win/builder/steamcmd.exe`.
+
+`games` is a map keyed by the game name used in package filenames. For `Win_FactorZoo_0.0.0_Demo.zip`, the game key is `FactorZoo`.
+
+Each game has two release groups:
+
+- `full`: used when the package filename does not end with `_Demo`.
+- `demo`: used when the package filename ends with `_Demo`.
+
+Each release group contains:
+
+- `appId`: the Steam AppID for that exact game and release type. Demo and full releases usually have different AppIDs.
+- `depots.Win`: the Windows depot ID for that AppID.
+- `depots.Mac`: the macOS depot ID for that AppID.
+
+Steam account information is intentionally not stored in `games.json`. The script asks for the Steam username during real uploads, then SteamCMD asks for password and Steam Guard code as needed.
 
 ## Package naming
 
@@ -59,9 +81,14 @@ Run the real upload:
 powershell -ExecutionPolicy Bypass -File .\Win\UploadSteamBuild.ps1 -PackagePath .\Build\Win_FactorZoo_0.0.0_Demo.zip,.\Build\Mac_FactorZoo_0.0.0_Demo.zip
 ```
 
+Run the real upload with the username prefilled:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Win\UploadSteamBuild.ps1 -PackagePath .\Build\Win_FactorZoo_0.0.0_Demo.zip -SteamUser your_steam_username
+```
+
 ## Upload behavior
 
 Packages with the same game, release type, version, and AppID are merged into one Steam app build. That means a matching Win and Mac pair will upload in one app build with two depots.
 
 Different AppIDs become separate queued tasks and run one after another.
-

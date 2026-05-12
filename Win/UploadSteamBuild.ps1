@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [string[]]$PackagePath,
+    [string]$SteamUser,
     [switch]$PlanOnly,
     [switch]$DryRun,
     [switch]$AllowPlaceholderConfig
@@ -408,7 +409,8 @@ function Invoke-SteamUpload {
     param(
         [object]$Task,
         [object]$VdfInfo,
-        [object]$Config
+        [object]$Config,
+        [string]$SteamUser
     )
 
     $steamCmdPath = [string]$Config.steamCmdPath
@@ -423,17 +425,31 @@ function Invoke-SteamUpload {
         throw "SteamCMD not found: $steamCmdPath. Put steamcmd.exe there or edit config\games.json."
     }
 
-    $steamUser = [string]$Config.steamUser
-    if ([string]::IsNullOrWhiteSpace($steamUser)) {
-        throw "Config steamUser is empty."
+    if ([string]::IsNullOrWhiteSpace($SteamUser)) {
+        throw "Steam user is empty."
     }
 
     Write-Info "Uploading AppID $($Task.AppId) with $steamCmdPath"
-    & $steamCmdPath +login $steamUser +run_app_build $VdfInfo.AppVdf +quit
+    & $steamCmdPath +login $SteamUser +run_app_build $VdfInfo.AppVdf +quit
     $exitCode = $LASTEXITCODE
     if ($exitCode -ne 0) {
         throw "SteamCMD failed for AppID $($Task.AppId) with exit code $exitCode. Output: $($VdfInfo.OutputDir)"
     }
+}
+
+function Get-SteamUser {
+    param([string]$ProvidedSteamUser)
+
+    if (-not [string]::IsNullOrWhiteSpace($ProvidedSteamUser)) {
+        return $ProvidedSteamUser.Trim()
+    }
+
+    Write-Host ""
+    $user = Read-Host "Steam username"
+    if ([string]::IsNullOrWhiteSpace($user)) {
+        throw "Steam username is required for real uploads."
+    }
+    return $user.Trim()
 }
 
 function Show-Plan {
@@ -487,6 +503,12 @@ try {
         exit 0
     }
 
+    $uploadSteamUser = $null
+    if (-not $DryRun) {
+        $uploadSteamUser = Get-SteamUser -ProvidedSteamUser $SteamUser
+        Write-Warn "SteamCMD will ask for password and Steam Guard code if needed."
+    }
+
     $succeeded = @()
     foreach ($task in $tasks) {
         Write-Host ""
@@ -506,7 +528,7 @@ try {
             continue
         }
 
-        Invoke-SteamUpload -Task $task -VdfInfo $vdfInfo -Config $config
+        Invoke-SteamUpload -Task $task -VdfInfo $vdfInfo -Config $config -SteamUser $uploadSteamUser
         Write-Info "Upload finished for AppID $($task.AppId). Output: $($vdfInfo.OutputDir)"
         $succeeded += $task
     }
