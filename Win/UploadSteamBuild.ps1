@@ -264,7 +264,7 @@ function New-EmptyConfig {
     }
 
     $template = [ordered]@{
-        setLive = "test"
+        setLive = ""
         steamCmdPath = "builder\steamcmd.exe"
         games = [ordered]@{
             YourGameName = [ordered]@{

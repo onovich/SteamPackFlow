@@ -8,14 +8,14 @@ This directory contains the Windows upload workflow for SteamCMD.
 2. Run the script once, or copy `Win/config/games.example.json` to `Win/config/games.json`.
 3. Edit `Win/config/games.json`.
 4. Fill each game's `appId`, `Win` depot ID, and `Mac` depot ID for the release types that exist.
-5. Keep `setLive` as `test` until you intentionally want to publish to another branch.
+5. Leave `setLive` empty to upload builds without assigning a branch automatically. Fill it only when that beta branch already exists and you intentionally want SteamCMD to set the uploaded build live there.
 6. Steam username is entered at runtime. Password and Steam Guard code are handled by SteamCMD in the terminal.
 
 `games.example.json` is a small reference. `games.json` is the file used by the script and is intentionally ignored by git because it can contain private AppIDs and DepotIDs. If `games.json` does not exist, the script creates a blank template and stops so you can fill it in.
 
 ## Config fields
 
-`setLive` is the Steam branch that the uploaded build should be assigned to. The current default is `test`, matching the existing Mac workflow. Leave it empty if you want SteamCMD to upload the build without setting a live branch.
+`setLive` is the Steam beta branch that the uploaded build should be assigned to. Leave it empty to upload the build only; this is the safest default. Steam does not allow scripts to set the default branch live automatically, so use Steamworks App Admin to assign default builds.
 
 `steamCmdPath` is the path to `steamcmd.exe`. Relative paths are resolved from the `Win` directory, so `builder\\steamcmd.exe` means `Win/builder/steamcmd.exe`.
 
