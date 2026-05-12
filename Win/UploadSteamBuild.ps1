@@ -28,6 +28,7 @@ $zhJsonBase64 = @(
     "5Lyg5a6M5oiQ44CC6L6T5Ye655uu5b2V77yaezF9IiwiRG9uZSI6Ij09PT09PT0g5a6M5oiQID09PT09PT0iLCJSZXF1aXJlZEZvcm1hdCI6IuaWh+S7tuWQjeW/hemhu+espuWQiOS7peS4i+agvOW8j++8miJ9"
 ) -join ""
 $zhMessages = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($zhJsonBase64)) | ConvertFrom-Json
+$zhMessages.NoEntry = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String("5ZyoICd7MX0nIOS4reayoeacieaJvuWIsOespuWQiCAnezB9JyDnmoTlj6/miafooYzmlofku7bmiJYgYXBw44CC6K+35Zyo6aG555uu5qC555uu5b2V5YaF5omTIHppcO+8jOS4jeimgeS7juS4iuS4gOe6p+ebruW9leW8gOWni+WOi+e8qe+8jOS5n+S4jeimgeWkmuWMheS4gOWxguaWh+S7tuWkueOAgg=="))
 $Script:Messages = @{
     "en-US" = @{
         InfoPrefix = "[INFO]"
@@ -57,7 +58,7 @@ $Script:Messages = @{
         InvalidFileName = "Invalid file name '{0}'. Expected: Win_Game_1.2.3.zip, Mac_Game_1.2.3.zip, Win_Game_1.2.3_Demo.zip, or Mac_Game_1.2.3_Demo.zip."
         DuplicatePlatform = "Duplicate {0} package in task '{1}'."
         RefuseClean = "Refusing to clean outside workspace: {0}"
-        NoEntry = "No {0} candidate found in '{1}'."
+        NoEntry = "No executable file or app bundle matching '{0}' was found in '{1}'. Please zip from the project root directory, not from its parent folder."
         MultiEntry = "Multiple entry candidates found in '{0}': {1}. Please keep only one."
         EntryOk = "{0} entry is already {1}."
         EntryTargetExists = "Cannot rename '{0}' to '{1}' because target already exists."
@@ -262,7 +263,14 @@ function Load-Config {
     }
 
     $raw = Get-Content -LiteralPath $Script:ConfigPath -Raw -Encoding UTF8
-    return $raw | ConvertFrom-Json
+    $config = $raw | ConvertFrom-Json
+    $schemaChanges = @(Ensure-ConfigSchema -Config $config)
+    if ($schemaChanges.Count -gt 0) {
+        Save-Config -Config $config -Path $Script:ConfigPath
+        $summary = $schemaChanges -join ", "
+        Write-Warn ((Get-LocalizedText -English "Config schema updated with missing empty fields: {0}" -ChineseBase64 "5bey6KGl5YWo6YWN572u5Lit57y65aSx55qE56m65a2X5q6177yaezB9") -f $summary)
+    }
+    return $config
 }
 
 function Load-ConfigWithRetry {
@@ -296,6 +304,10 @@ function New-EmptyConfig {
         games = [ordered]@{
             YourGameName = [ordered]@{
                 full = [ordered]@{
+                    entryNames = [ordered]@{
+                        Win = ""
+                        Mac = ""
+                    }
                     appId = ""
                     depots = [ordered]@{
                         Win = ""
@@ -303,6 +315,10 @@ function New-EmptyConfig {
                     }
                 }
                 demo = [ordered]@{
+                    entryNames = [ordered]@{
+                        Win = ""
+                        Mac = ""
+                    }
                     appId = ""
                     depots = [ordered]@{
                         Win = ""
@@ -314,6 +330,183 @@ function New-EmptyConfig {
     }
 
     $template | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $Path -Encoding UTF8
+}
+
+function Save-Config {
+    param(
+        [object]$Config,
+        [string]$Path
+    )
+
+    $Config | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $Path -Encoding UTF8
+}
+
+function Set-JsonPropertyIfMissingOrNull {
+    param(
+        [object]$Object,
+        [string]$Name,
+        [object]$Value
+    )
+
+    if ($null -eq $Object) { return $false }
+
+    $property = $Object.PSObject.Properties | Where-Object { [string]::Equals($_.Name, $Name, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1
+    if ($null -eq $property) {
+        $Object | Add-Member -NotePropertyName $Name -NotePropertyValue $Value
+        return $true
+    }
+
+    if ($null -eq $property.Value) {
+        $property.Value = $Value
+        return $true
+    }
+
+    return $false
+}
+
+function Remove-JsonPropertyIfPresent {
+    param(
+        [object]$Object,
+        [string]$Name
+    )
+
+    if ($null -eq $Object) { return $false }
+
+    $property = $Object.PSObject.Properties | Where-Object { [string]::Equals($_.Name, $Name, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1
+    if ($null -eq $property) {
+        return $false
+    }
+
+    return $Object.PSObject.Properties.Remove($property.Name)
+}
+
+function Copy-JsonStringIfBlank {
+    param(
+        [object]$Object,
+        [string]$Name,
+        [string]$SourceValue
+    )
+
+    if ($null -eq $Object -or [string]::IsNullOrWhiteSpace($SourceValue)) {
+        return $false
+    }
+
+    $property = $Object.PSObject.Properties | Where-Object { [string]::Equals($_.Name, $Name, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1
+    if ($null -eq $property) {
+        $Object | Add-Member -NotePropertyName $Name -NotePropertyValue $SourceValue
+        return $true
+    }
+
+    if ([string]::IsNullOrWhiteSpace([string]$property.Value)) {
+        $property.Value = $SourceValue
+        return $true
+    }
+
+    return $false
+}
+
+function New-EmptyEntryNames {
+    return [pscustomobject][ordered]@{
+        Win = ""
+        Mac = ""
+    }
+}
+
+function New-EmptyDepots {
+    return [pscustomobject][ordered]@{
+        Win = ""
+        Mac = ""
+    }
+}
+
+function New-EmptyReleaseConfig {
+    return [pscustomobject][ordered]@{
+        entryNames = New-EmptyEntryNames
+        appId = ""
+        depots = New-EmptyDepots
+    }
+}
+
+function Ensure-ConfigSchema {
+    param([object]$Config)
+
+    $changes = New-Object System.Collections.Generic.List[string]
+
+    if (Set-JsonPropertyIfMissingOrNull -Object $Config -Name "setLive" -Value "") {
+        $changes.Add("setLive")
+    }
+    if (Set-JsonPropertyIfMissingOrNull -Object $Config -Name "steamCmdPath" -Value "builder\steamcmd.exe") {
+        $changes.Add("steamCmdPath")
+    }
+    if (Set-JsonPropertyIfMissingOrNull -Object $Config -Name "games" -Value ([pscustomobject]@{})) {
+        $changes.Add("games")
+    }
+
+    foreach ($gameProperty in @($Config.games.PSObject.Properties)) {
+        $gameName = $gameProperty.Name
+        if ($null -eq $gameProperty.Value) {
+            $gameProperty.Value = [pscustomobject]@{}
+            $changes.Add("games.$gameName")
+        }
+
+        $gameConfig = $gameProperty.Value
+        $legacyEntryNames = Get-JsonPathValue -Object $gameConfig -Path "entryNames"
+        $legacyWinName = if ($null -ne $legacyEntryNames) { Get-FirstJsonStringValue -Object $legacyEntryNames -Paths @("Win", "Windows") } else { $null }
+        $legacyMacName = if ($null -ne $legacyEntryNames) { Get-FirstJsonStringValue -Object $legacyEntryNames -Paths @("Mac", "MacOS") } else { $null }
+
+        foreach ($releaseKey in @("full", "demo")) {
+            if (Set-JsonPropertyIfMissingOrNull -Object $gameConfig -Name $releaseKey -Value (New-EmptyReleaseConfig)) {
+                $changes.Add("games.$gameName.$releaseKey")
+            }
+
+            $releaseConfig = Get-JsonPathValue -Object $gameConfig -Path $releaseKey
+            if ($null -eq $releaseConfig) {
+                continue
+            }
+
+            if (Set-JsonPropertyIfMissingOrNull -Object $releaseConfig -Name "appId" -Value "") {
+                $changes.Add("games.$gameName.$releaseKey.appId")
+            }
+            if (Set-JsonPropertyIfMissingOrNull -Object $releaseConfig -Name "entryNames" -Value (New-EmptyEntryNames)) {
+                $changes.Add("games.$gameName.$releaseKey.entryNames")
+            }
+            if (Set-JsonPropertyIfMissingOrNull -Object $releaseConfig -Name "depots" -Value (New-EmptyDepots)) {
+                $changes.Add("games.$gameName.$releaseKey.depots")
+            }
+
+            $releaseEntryNames = Get-JsonPathValue -Object $releaseConfig -Path "entryNames"
+            if ($null -ne $releaseEntryNames) {
+                if (Set-JsonPropertyIfMissingOrNull -Object $releaseEntryNames -Name "Win" -Value "") {
+                    $changes.Add("games.$gameName.$releaseKey.entryNames.Win")
+                }
+                if (Set-JsonPropertyIfMissingOrNull -Object $releaseEntryNames -Name "Mac" -Value "") {
+                    $changes.Add("games.$gameName.$releaseKey.entryNames.Mac")
+                }
+                if (Copy-JsonStringIfBlank -Object $releaseEntryNames -Name "Win" -SourceValue $legacyWinName) {
+                    $changes.Add("games.$gameName.$releaseKey.entryNames.Win")
+                }
+                if (Copy-JsonStringIfBlank -Object $releaseEntryNames -Name "Mac" -SourceValue $legacyMacName) {
+                    $changes.Add("games.$gameName.$releaseKey.entryNames.Mac")
+                }
+            }
+
+            $depots = Get-JsonPathValue -Object $releaseConfig -Path "depots"
+            if ($null -ne $depots) {
+                if (Set-JsonPropertyIfMissingOrNull -Object $depots -Name "Win" -Value "") {
+                    $changes.Add("games.$gameName.$releaseKey.depots.Win")
+                }
+                if (Set-JsonPropertyIfMissingOrNull -Object $depots -Name "Mac" -Value "") {
+                    $changes.Add("games.$gameName.$releaseKey.depots.Mac")
+                }
+            }
+        }
+
+        if (Remove-JsonPropertyIfPresent -Object $gameConfig -Name "entryNames") {
+            $changes.Add("games.$gameName.entryNames")
+        }
+    }
+
+    return $changes.ToArray()
 }
 
 function Test-Placeholder {
@@ -373,10 +566,14 @@ function Resolve-GameConfig {
         }
     }
 
+    $targetEntry = Get-TargetEntryInfoFromConfig -Game $Game -ReleaseKey $releaseKey -ReleaseConfig $releaseConfig -Platform $Platform
+
     return [pscustomobject]@{
         AppId = $appId
         DepotId = $depotId
         ReleaseKey = $releaseKey
+        TargetEntryName = $targetEntry.Name
+        TargetEntryStem = $targetEntry.Stem
     }
 }
 
@@ -418,6 +615,8 @@ function Parse-Package {
         ReleaseKey = $resolvedConfig.ReleaseKey
         AppId = $resolvedConfig.AppId
         DepotId = $resolvedConfig.DepotId
+        TargetEntryName = $resolvedConfig.TargetEntryName
+        TargetEntryStem = $resolvedConfig.TargetEntryStem
     }
 }
 
@@ -530,19 +729,283 @@ function Get-EffectiveContentRoot {
     return $Path
 }
 
-function Ensure-EntryName {
+function Get-JsonPathValue {
     param(
-        [string]$ContentDir,
+        [object]$Object,
+        [string]$Path
+    )
+
+    $current = $Object
+    foreach ($part in ($Path -split '\.')) {
+        if ($null -eq $current) { return $null }
+
+        $property = $current.PSObject.Properties | Where-Object { [string]::Equals($_.Name, $part, [System.StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1
+        if ($null -eq $property) { return $null }
+        $current = $property.Value
+    }
+
+    return $current
+}
+
+function Get-FirstJsonStringValue {
+    param(
+        [object]$Object,
+        [string[]]$Paths
+    )
+
+    foreach ($path in $Paths) {
+        $value = Get-JsonPathValue -Object $Object -Path $path
+        if ($null -eq $value) { continue }
+        if ($value -is [array]) { continue }
+
+        $text = ([string]$value).Trim()
+        if (-not [string]::IsNullOrWhiteSpace($text)) {
+            return $text
+        }
+    }
+
+    return $null
+}
+
+function Get-NormalizedConfigEntryFileName {
+    param(
+        [string]$RawName,
+        [string]$Extension
+    )
+
+    $name = $RawName.Trim()
+    $leaf = Split-Path -Leaf $name
+    if (-not [string]::IsNullOrWhiteSpace($leaf)) {
+        $name = $leaf
+    }
+
+    if (-not $name.EndsWith($Extension, [System.StringComparison]::OrdinalIgnoreCase)) {
+        $name = "$name$Extension"
+    }
+
+    $invalidChars = [System.IO.Path]::GetInvalidFileNameChars()
+    if ([string]::IsNullOrWhiteSpace($name) -or $name -eq "." -or $name -eq ".." -or $name.IndexOfAny($invalidChars) -ge 0) {
+        throw ((Get-LocalizedText -English "Config entry name is invalid: {0}" -ChineseBase64 "6YWN572u5Lit55qE5YWl5Y+j5ZCN56ew5LiN5ZCI5rOV77yaezB9") -f $RawName)
+    }
+
+    return $name
+}
+
+function Get-TargetEntryInfoFromConfig {
+    param(
+        [string]$Game,
+        [string]$ReleaseKey,
+        [object]$ReleaseConfig,
         [string]$Platform
     )
 
-    $root = Get-EffectiveContentRoot -Path $ContentDir
     if ($Platform -eq "Win") {
-        $targetName = "game.exe"
-        $candidates = @(Get-ChildItem -LiteralPath $root -Force -File -Filter "*.exe" |
-            Where-Object { $_.Name -notlike "UnityCrashHandler*.exe" -and $_.Name -notlike "crashhandler*.exe" })
+        $platformPaths = @(
+            "entryNames.Win",
+            "entryNames.Windows",
+            "entries.Win",
+            "entries.Windows",
+            "executables.Win",
+            "executables.Windows"
+        )
+        $extension = ".exe"
     } else {
-        $targetName = "game.app"
+        $platformPaths = @(
+            "entryNames.Mac",
+            "entryNames.MacOS",
+            "entries.Mac",
+            "entries.MacOS",
+            "apps.Mac",
+            "apps.MacOS"
+        )
+        $extension = ".app"
+    }
+
+    $rawName = Get-FirstJsonStringValue -Object $ReleaseConfig -Paths $platformPaths
+    if ([string]::IsNullOrWhiteSpace($rawName)) {
+        throw ((Get-LocalizedText -English "Config '{0}.{1}' is missing or empty 'entryNames.{2}'. The field was added to {3}; fill it before uploading." -ChineseBase64 "6YWN572uICd7MH0uezF9JyDnvLrlsJHmiJbnlZnnqbrkuoYgJ2VudHJ5TmFtZXMuezJ9J+OAguiEmuacrOW3suaKiuivpeWtl+auteihpeWIsCB7M33vvIzor7floavlhpnlkI7lho3kuIrkvKDjgII=") -f $Game, $ReleaseKey, $Platform, $Script:ConfigPath)
+    }
+
+    $targetName = Get-NormalizedConfigEntryFileName -RawName $rawName -Extension $extension
+    return [pscustomobject]@{
+        Name = $targetName
+        Stem = [System.IO.Path]::GetFileNameWithoutExtension($targetName)
+    }
+}
+
+function Test-IgnoredWindowsExecutable {
+    param([string]$Name)
+
+    return $Name -match '(?i)crashhandler.*\.exe$'
+}
+
+function Rename-UnityDataDirectory {
+    param(
+        [string]$Root,
+        [string]$OldStem,
+        [string]$NewStem
+    )
+
+    if ([string]::Equals($OldStem, $NewStem, [System.StringComparison]::OrdinalIgnoreCase)) {
+        return
+    }
+
+    foreach ($suffix in @("_Data", "_Date")) {
+        $oldName = "$OldStem$suffix"
+        $newName = "$NewStem$suffix"
+        $oldPath = Join-Path $Root $oldName
+        if (-not (Test-Path -LiteralPath $oldPath -PathType Container)) {
+            continue
+        }
+
+        $newPath = Join-Path $Root $newName
+        if (Test-Path -LiteralPath $newPath) {
+            throw $(& T -Key "EntryTargetExists" -Values @($oldName, $newName))
+        }
+
+        Rename-Item -LiteralPath $oldPath -NewName $newName
+        Write-Warn ((Get-LocalizedText -English "{0} data directory renamed: {1} -> {2}" -ChineseBase64 "ezB9IOaVsOaNruebruW9leW3suaUueWQje+8mnsxfSAtPiB7Mn0=") -f "Win", $oldName, $newName)
+    }
+}
+
+function Load-XmlDocumentSafely {
+    param([string]$Path)
+
+    $settings = New-Object System.Xml.XmlReaderSettings
+    $settings.DtdProcessing = [System.Xml.DtdProcessing]::Ignore
+    $settings.XmlResolver = $null
+
+    $doc = New-Object System.Xml.XmlDocument
+    $doc.PreserveWhitespace = $true
+    $doc.XmlResolver = $null
+
+    $reader = [System.Xml.XmlReader]::Create($Path, $settings)
+    try {
+        $doc.Load($reader)
+        return $doc
+    }
+    finally {
+        $reader.Close()
+    }
+}
+
+function Get-MacInfoPlistExecutableName {
+    param([string]$AppPath)
+
+    $plistPath = Join-Path (Join-Path $AppPath "Contents") "Info.plist"
+    if (-not (Test-Path -LiteralPath $plistPath -PathType Leaf)) {
+        return $null
+    }
+
+    try {
+        $doc = Load-XmlDocumentSafely -Path $plistPath
+        $nodes = @($doc.SelectNodes('/plist/dict/*'))
+        for ($index = 0; $index -lt ($nodes.Count - 1); $index++) {
+            if ($nodes[$index].Name -eq "key" -and $nodes[$index].InnerText -eq "CFBundleExecutable") {
+                return $nodes[$index + 1].InnerText
+            }
+        }
+    }
+    catch {
+        return $null
+    }
+
+    return $null
+}
+
+function Set-MacInfoPlistExecutableName {
+    param(
+        [string]$AppPath,
+        [string]$ExecutableName
+    )
+
+    $plistPath = Join-Path (Join-Path $AppPath "Contents") "Info.plist"
+    if (-not (Test-Path -LiteralPath $plistPath -PathType Leaf)) {
+        return
+    }
+
+    $doc = Load-XmlDocumentSafely -Path $plistPath
+
+    $dict = $doc.SelectSingleNode('/plist/dict')
+    if ($null -eq $dict) {
+        return
+    }
+
+    $nodes = @($dict.ChildNodes | Where-Object { $_.NodeType -eq [System.Xml.XmlNodeType]::Element })
+    for ($index = 0; $index -lt ($nodes.Count - 1); $index++) {
+        if ($nodes[$index].Name -eq "key" -and $nodes[$index].InnerText -eq "CFBundleExecutable") {
+            if ($nodes[$index + 1].Name -eq "string" -and $nodes[$index + 1].InnerText -ne $ExecutableName) {
+                $nodes[$index + 1].InnerText = $ExecutableName
+                $settings = New-Object System.Xml.XmlWriterSettings
+                $settings.Encoding = New-Object System.Text.UTF8Encoding($false)
+                $settings.Indent = $true
+                $writer = [System.Xml.XmlWriter]::Create($plistPath, $settings)
+                $doc.Save($writer)
+                $writer.Close()
+                Write-Warn ((Get-LocalizedText -English "Info.plist CFBundleExecutable updated: {0}" -ChineseBase64 "5bey5pu05pawIEluZm8ucGxpc3Qg55qEIENGQnVuZGxlRXhlY3V0YWJsZe+8mnswfQ==") -f $ExecutableName)
+            }
+            return
+        }
+    }
+}
+
+function Ensure-MacBundleExecutableName {
+    param(
+        [string]$AppPath,
+        [string]$TargetExecutableName
+    )
+
+    $macOsDir = Join-Path (Join-Path $AppPath "Contents") "MacOS"
+    if (-not (Test-Path -LiteralPath $macOsDir -PathType Container)) {
+        throw ((Get-LocalizedText -English "No macOS executable candidate found in {0}." -ChineseBase64 "5ZyoIHswfSDkuK3msqHmnInmib7liLAgbWFjT1Mg5Y+v5omn6KGM5paH5Lu25YCZ6YCJ44CC") -f $macOsDir)
+    }
+
+    $targetPath = Join-Path $macOsDir $TargetExecutableName
+    if (-not (Test-Path -LiteralPath $targetPath -PathType Leaf)) {
+        $declaredExecutable = Get-MacInfoPlistExecutableName -AppPath $AppPath
+        $declaredPath = if ([string]::IsNullOrWhiteSpace($declaredExecutable)) { $null } else { Join-Path $macOsDir $declaredExecutable }
+
+        if ($declaredPath -and (Test-Path -LiteralPath $declaredPath -PathType Leaf)) {
+            $candidate = Get-Item -LiteralPath $declaredPath
+        } else {
+            $candidates = @(Get-ChildItem -LiteralPath $macOsDir -Force -File | Where-Object { $_.Name -ne ".DS_Store" })
+            if ($candidates.Count -eq 0) {
+                throw ((Get-LocalizedText -English "No macOS executable candidate found in {0}." -ChineseBase64 "5ZyoIHswfSDkuK3msqHmnInmib7liLAgbWFjT1Mg5Y+v5omn6KGM5paH5Lu25YCZ6YCJ44CC") -f $macOsDir)
+            }
+            if ($candidates.Count -gt 1) {
+                $names = ($candidates | ForEach-Object { $_.Name }) -join ", "
+                throw ((Get-LocalizedText -English "Multiple macOS executable candidates found in {0}: {1}. Please keep only one." -ChineseBase64 "5ZyoIHswfSDkuK3mib7liLDlpJrkuKogbWFjT1Mg5Y+v5omn6KGM5paH5Lu25YCZ6YCJ77yaezF944CC6K+35Y+q5L+d55WZ5LiA5Liq44CC") -f $macOsDir, $names)
+            }
+            $candidate = $candidates[0]
+        }
+
+        Rename-Item -LiteralPath $candidate.FullName -NewName $TargetExecutableName
+        Write-Warn ((Get-LocalizedText -English "macOS executable renamed: {0} -> {1}" -ChineseBase64 "bWFjT1Mg5Y+v5omn6KGM5paH5Lu25bey5pS55ZCN77yaezB9IC0+IHsxfQ==") -f $candidate.Name, $TargetExecutableName)
+    }
+
+    Set-MacInfoPlistExecutableName -AppPath $AppPath -ExecutableName $TargetExecutableName
+}
+
+function Ensure-EntryName {
+    param(
+        [string]$ContentDir,
+        [object]$Package
+    )
+
+    $root = Get-EffectiveContentRoot -Path $ContentDir
+    $platform = $Package.Platform
+    $targetName = $Package.TargetEntryName
+    $targetStem = $Package.TargetEntryStem
+    Write-Info ((Get-LocalizedText -English "Target entry from config: {0}" -ChineseBase64 "6YWN572u5Lit55qE55uu5qCH5YWl5Y+j77yaezB9") -f $targetName)
+    if ($platform -eq "Win") {
+        $ignoredCandidates = @(Get-ChildItem -LiteralPath $root -Force -File -Filter "*.exe" |
+            Where-Object { Test-IgnoredWindowsExecutable -Name $_.Name })
+        foreach ($ignored in $ignoredCandidates) {
+            Write-Info ((Get-LocalizedText -English "Crash handler executable ignored while checking Windows entry: {0}" -ChineseBase64 "5qCh6aqMIFdpbmRvd3Mg5YWl5Y+j5pe25bey6Lez6L+H5bSp5rqD5aSE55CGIGV4Ze+8mnswfQ==") -f $ignored.Name)
+        }
+        $candidates = @(Get-ChildItem -LiteralPath $root -Force -File -Filter "*.exe" |
+            Where-Object { -not (Test-IgnoredWindowsExecutable -Name $_.Name) })
+    } else {
         $rootItem = Get-Item -LiteralPath $root
         if ($rootItem.PSIsContainer -and $rootItem.Name -like "*.app") {
             $candidates = @($rootItem)
@@ -560,29 +1023,44 @@ function Ensure-EntryName {
     }
 
     $entry = $candidates[0]
+    $beforeName = $entry.Name
+    $oldStem = [System.IO.Path]::GetFileNameWithoutExtension($entry.Name)
+    $parentDir = if ($entry.PSIsContainer) { $entry.Parent.FullName } else { $entry.DirectoryName }
+    $targetPath = Join-Path $parentDir $targetName
     if ($entry.Name -eq $targetName) {
-        Write-Info $(& T -Key "EntryOk" -Values @($Platform, $targetName))
+        Write-Info $(& T -Key "EntryOk" -Values @($platform, $targetName))
+        if ($platform -eq "Win") {
+            Rename-UnityDataDirectory -Root $parentDir -OldStem $oldStem -NewStem $targetStem
+        } else {
+            Ensure-MacBundleExecutableName -AppPath $entry.FullName -TargetExecutableName $targetStem
+        }
         return [pscustomobject]@{
             Changed = $false
-            Before = $entry.Name
+            Before = $beforeName
             After = $targetName
             Root = $root
+            EntryPath = $entry.FullName
         }
     }
 
-    $parentDir = if ($entry.PSIsContainer) { $entry.Parent.FullName } else { $entry.DirectoryName }
-    $targetPath = Join-Path $parentDir $targetName
     if (Test-Path -LiteralPath $targetPath) {
         throw $(& T -Key "EntryTargetExists" -Values @($entry.Name, $targetName))
     }
 
     Rename-Item -LiteralPath $entry.FullName -NewName $targetName
-    Write-Warn $(& T -Key "EntryRenamed" -Values @($Platform, $entry.Name, $targetName))
+    Write-Warn $(& T -Key "EntryRenamed" -Values @($platform, $beforeName, $targetName))
+    if ($platform -eq "Win") {
+        Rename-UnityDataDirectory -Root $parentDir -OldStem $oldStem -NewStem $targetStem
+    } else {
+        Ensure-MacBundleExecutableName -AppPath $targetPath -TargetExecutableName $targetStem
+    }
+
     return [pscustomobject]@{
         Changed = $true
-        Before = $entry.Name
+        Before = $beforeName
         After = $targetName
         Root = $root
+        EntryPath = $targetPath
     }
 }
 
@@ -601,11 +1079,12 @@ function Expand-Package {
     Write-Info $(& T -Key "Extracting" -Values @($Package.FileName, $contentDir))
     Expand-Archive -LiteralPath $archiveCopy -DestinationPath $contentDir -Force
     Remove-MacJunk -Path $contentDir
-    $entry = Ensure-EntryName -ContentDir $contentDir -Platform $Package.Platform
+    $entry = Ensure-EntryName -ContentDir $contentDir -Package $Package
 
     return [pscustomobject]@{
         Package = $Package
         ContentDir = $contentDir
+        ArchivePath = $archiveCopy
         Entry = $entry
     }
 }
@@ -892,6 +1371,10 @@ try {
     }
     Write-Host ""
     Write-Host $(& T -Key "Done") -ForegroundColor Green
+    if ($failed.Count -gt 0) {
+        exit 1
+    }
+    exit 0
 }
 catch {
     Write-Err $_.Exception.Message
