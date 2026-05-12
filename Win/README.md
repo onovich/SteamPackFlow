@@ -71,6 +71,8 @@ The script opens `Win/inbox`. Copy one or more zip packages into that folder, re
 
 If any package name does not match the required rule, the script lists the bad files and waits. Rename or remove them in `Win/inbox`, then press Enter again. It will not continue to extraction or upload until every package name is valid.
 
+Other fixable checks behave the same way in the double-click flow: if the matching game/release config is missing, empty, or still a placeholder, edit `Win/config/games.json`, press Enter, and the tool reloads the config before moving on. If a package later fails because its contents are wrong, such as a missing `game.exe` or `game.app`, the tool records that file as failed and continues with the remaining tasks; rebuild or fix that package and run it again later.
+
 Preview only:
 
 ```powershell

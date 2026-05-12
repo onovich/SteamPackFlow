@@ -18,6 +18,7 @@ $Script:ConfigPath = if ([string]::IsNullOrWhiteSpace($ConfigPath)) { Join-Path 
 $Script:Workspace = Join-Path $Script:Root "workspace"
 $Script:Inbox = Join-Path $Script:Root "inbox"
 $Script:NamePattern = '^(Win|Mac)_([A-Za-z0-9]+)_([0-9]+\.[0-9]+\.[0-9]+)(_Demo)?\.zip$'
+$Script:InteractiveMode = -not ($PackagePath -and $PackagePath.Count -gt 0)
 $zhJsonBase64 = @(
     "eyJJbmZvUHJlZml4IjoiW+S/oeaBr10iLCJXYXJuUHJlZml4IjoiW+itpuWRil0iLCJFcnJvclByZWZpeCI6IlvplJnor69dIiwiVGl0bGUiOiI9PT09PT09IFN0ZWFtIFdpbmRvd3Mg5LiK5Lyg5bel5YW3ID09PT09PT0iLCJQbGFuT25seU1vZGUiOiLorqHliJLpooTop4jmqKHlvI/vvJrkuI3kvJrlpI3liLbjgIHop6PljovjgIHnlJ/miJAgVkRGIOaIluS4iuS8oOOAgiIsIkRyeVJ1bk1vZGUiOiLlubLot5HmqKHlvI/vvJrlj6rlpI3liLbjgIHop6PljovlubbnlJ/miJAgVkRG77yM5LiN5Lya6LCD55SoIFN0ZWFtQ01EIOS4iuS8oOOAgiIsIkluYm94SW50cm8iOiLor7fmiorkuIDkuKrmiJblpJrkuKogLnppcCDljIXlpI3liLbliLDov5nkuKrmlofku7blpLnvvJoiLCJJbmJveE9wZW4iOiLnjrDlnKjkvJroh6rliqjmiZPlvIDor6Xmlofku7blpLnjgILlpI3liLblrozmiJDlkI7vvIzor7flm57liLDov5nkuKrnqpflj6PlubbmjIkgRW50ZXIg57un57ut44CCIiwiSW5ib3hPcGVuRmFpbGVkIjoi5peg5rOV6Ieq5Yqo5omT5byA5paH5Lu25aS577yaezB9IiwiSW5ib3hDb250aW51ZSI6IuWkjeWItuWujOaIkOWQjuaMiSBFbnRlciDnu6fnu60iLCJJbmJveFVuc3VwcG9ydGVkIjoi5pS25Lu25aS56YeM5Y+R546w5LiN5pSv5oyB55qE5Y6L57yp5YyF77yaezB944CC6K+356e76Zmk"
     "5a6D5Lus77yM5Y+q5L+d55WZIC56aXAg5paH5Lu244CCIiwiSW5ib3hFbXB0eSI6IuWcqCB7MH0g5Lit5rKh5pyJ5om+5YiwIC56aXAg5YyF44CCIiwiSW5ib3hGb3VuZCI6IuWcqOaUtuS7tuWkueS4reaJvuWIsCB7MH0g5Liq5YyF44CCIiwiTWlzc2luZ0NvbmZpZyI6IuayoeacieaJvuWIsOmFjee9ruaWh+S7tuOAguW3suWcqCB7MH0g5Yib5bu656m65qih5p2/44CC6K+35aGr5YaZ55yf5a6e5ri45oiP5ZCN44CBQXBwSUQg5ZKMIERlcG90SUQg5ZCO6YeN5paw6L+Q6KGM5bel5YW344CCIiwiTWlzc2luZ0dhbWVzIjoi6YWN572u5paH5Lu257y65bCR6aG25bGCICdnYW1lcycg5a+56LGh44CC6K+357yW6L6RIHswfeOAgiIsIkdhbWVNaXNzaW5nIjoi5ri45oiPICd7MH0nIOayoeaciemFjee9ruWcqCB7MX0g5Lit44CC6K+35ZyoICdnYW1lcycg5LiL5re75YqgICd7MH0n44CCIiwiUmVsZWFzZU1pc3NpbmciOiLljIUgJ3swfScg5pivezF977yM5L2G6YWN572u5Lit5rKh5pyJICd7MH0uezJ9JyDmrrXjgILor7flhYjooaXlhYUgYXBwSWQg5ZKMIGRlcG90c+OAgiIsIkZ1bGxSZWxlYXNlIjoi5q2j5byP54mIIiwiRGVtb1JlbGVhc2UiOiJEZW1vIOeJiCIsIkFwcElkTWlzc2luZyI6IumFjee9riAnezB9LnsxfScg57y65bCRICdhcHBJZCfjgILor7flhYjooaXlhYUgU3RlYW0gQXBw"
@@ -234,6 +235,23 @@ function Load-Config {
     return $raw | ConvertFrom-Json
 }
 
+function Load-ConfigWithRetry {
+    while ($true) {
+        try {
+            return Load-Config
+        }
+        catch {
+            if (-not $Script:InteractiveMode) {
+                throw
+            }
+
+            Write-Err $_.Exception.Message
+            Write-Warn (Get-LocalizedText -English "Fix the config, then press Enter to reload it." -ChineseBase64 "6K+35L+u5pS56YWN572u5ZCO5oyJIEVudGVyIOmHjeaWsOivu+WPluOAgg==")
+            Read-Host
+        }
+    }
+}
+
 function New-EmptyConfig {
     param([string]$Path)
 
@@ -366,6 +384,52 @@ function Parse-Package {
         ReleaseKey = $resolvedConfig.ReleaseKey
         AppId = $resolvedConfig.AppId
         DepotId = $resolvedConfig.DepotId
+    }
+}
+
+function Resolve-PackagesWithRetry {
+    param(
+        [string[]]$Paths,
+        [object]$Config
+    )
+
+    while ($true) {
+        $packages = @()
+        $errors = @()
+
+        foreach ($path in $Paths) {
+            try {
+                $packages += Parse-Package -Path $path -Config $Config
+            }
+            catch {
+                $errors += [pscustomobject]@{
+                    Path = $path
+                    Message = $_.Exception.Message
+                }
+            }
+        }
+
+        if ($errors.Count -eq 0) {
+            return [pscustomobject]@{
+                Packages = $packages
+                Config = $Config
+            }
+        }
+
+        if (-not $Script:InteractiveMode) {
+            $message = ($errors | ForEach-Object { "$($_.Path): $($_.Message)" }) -join [Environment]::NewLine
+            throw $message
+        }
+
+        Write-Err (Get-LocalizedText -English "Config or package validation still has problems:" -ChineseBase64 "6YWN572u5LuN5pyJ6Zeu6aKY77ya")
+        foreach ($err in $errors) {
+            Write-Host "  $($err.Path)" -ForegroundColor Yellow
+            Write-Host "    $($err.Message)" -ForegroundColor Yellow
+        }
+        Write-Warn (Get-LocalizedText -English "Fix the issues above, then press Enter to check again." -ChineseBase64 "6K+35L+u5aSN5LiK6L+w6Zeu6aKY5ZCO5oyJIEVudGVyIOmHjeaWsOajgOafpeOAgg==")
+        Read-Host
+        $Config = Load-ConfigWithRetry
+        $Paths = Get-InboxPackagePaths
     }
 }
 
@@ -694,12 +758,11 @@ try {
     if ($PlanOnly) { Write-Warn $(& T -Key "PlanOnlyMode") }
     elseif ($DryRun) { Write-Warn $(& T -Key "DryRunMode") }
 
-    $config = Load-Config
+    $config = Load-ConfigWithRetry
     $paths = Get-PackagePaths
-    $packages = @()
-    foreach ($path in $paths) {
-        $packages += Parse-Package -Path $path -Config $config
-    }
+    $validation = Resolve-PackagesWithRetry -Paths $paths -Config $config
+    $packages = $validation.Packages
+    $config = $validation.Config
 
     Write-Host ""
     if ($Language -eq "zh-CN") {
@@ -732,30 +795,66 @@ try {
     }
 
     $succeeded = @()
+    $failed = @()
     foreach ($task in $tasks) {
         Write-Host ""
         Write-Info $(& T -Key "Preparing" -Values @($task.AppId, $task.Game, $task.Version, $task.ReleaseKey))
-        $prepared = @()
-        foreach ($pkg in $task.Packages) {
-            $prepared += Expand-Package -Package $pkg
+        try {
+            $prepared = @()
+            foreach ($pkg in $task.Packages) {
+                try {
+                    $prepared += Expand-Package -Package $pkg
+                }
+                catch {
+                    $failed += [pscustomobject]@{
+                        Task = "$($task.Game) $($task.Version) $($task.ReleaseKey)"
+                        Reason = (Get-LocalizedText -English "Package preparation failed. Rework this file and run it again: {0}" -ChineseBase64 "5YyF5L2T5YeG5aSH5aSx6LSl77yM5ZCO57ut6K+36YeN5paw5aSE55CG6L+Z5Liq5paH5Lu277yaezB9") -f $pkg.FileName
+                        Detail = $_.Exception.Message
+                    }
+                    throw
+                }
+            }
+
+            $vdfInfo = New-VdfFiles -Task $task -PreparedPackages $prepared -Config $config
+            Write-Info $(& T -Key "GeneratedAppVdf" -Values @($vdfInfo.AppVdf))
+            Write-Info $(& T -Key "BuildDescription" -Values @($vdfInfo.Description))
+
+            if ($DryRun) {
+                Write-Warn $(& T -Key "DryRunSkipped" -Values @($task.AppId))
+                $succeeded += $task
+                continue
+            }
+
+            try {
+                Invoke-SteamUpload -Task $task -VdfInfo $vdfInfo -Config $config -SteamUser $uploadSteamUser
+                Write-Info $(& T -Key "UploadFinished" -Values @($task.AppId, $vdfInfo.OutputDir))
+                $succeeded += $task
+            }
+            catch {
+                $failed += [pscustomobject]@{
+                    Task = "$($task.Game) $($task.Version) $($task.ReleaseKey)"
+                    Reason = Get-LocalizedText -English "Upload failed. Re-run this task later." -ChineseBase64 "5LiK5Lyg5aSx6LSl77yM5ZCO57ut6K+36YeN5paw5pON5L2c6L+Z5Liq5Lu75Yqh44CC"
+                    Detail = $_.Exception.Message
+                }
+                Write-Err $_.Exception.Message
+                continue
+            }
         }
-
-        $vdfInfo = New-VdfFiles -Task $task -PreparedPackages $prepared -Config $config
-        Write-Info $(& T -Key "GeneratedAppVdf" -Values @($vdfInfo.AppVdf))
-        Write-Info $(& T -Key "BuildDescription" -Values @($vdfInfo.Description))
-
-        if ($DryRun) {
-            Write-Warn $(& T -Key "DryRunSkipped" -Values @($task.AppId))
-            $succeeded += $task
+        catch {
+            Write-Err $_.Exception.Message
             continue
         }
-
-        Invoke-SteamUpload -Task $task -VdfInfo $vdfInfo -Config $config -SteamUser $uploadSteamUser
-        Write-Info $(& T -Key "UploadFinished" -Values @($task.AppId, $vdfInfo.OutputDir))
-        $succeeded += $task
     }
 
     Prompt-OpenSteamworks -SucceededTasks $succeeded
+    if ($failed.Count -gt 0) {
+        Write-Host ""
+        Write-Warn (Get-LocalizedText -English "The following tasks failed; other tasks were still processed:" -ChineseBase64 "5Lul5LiL5Lu75Yqh5aSx6LSl77yM5YW25LuW5Lu75Yqh5bey57un57ut5aSE55CG77ya")
+        foreach ($item in $failed) {
+            Write-Host ((Get-LocalizedText -English "Failed: {0} | {1}" -ChineseBase64 "5aSx6LSl77yaezB9IHwgezF9") -f $item.Task, $item.Reason) -ForegroundColor Yellow
+            Write-Host "  $($item.Detail)" -ForegroundColor Yellow
+        }
+    }
     Write-Host ""
     Write-Host $(& T -Key "Done") -ForegroundColor Green
 }
