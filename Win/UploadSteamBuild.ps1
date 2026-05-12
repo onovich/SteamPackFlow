@@ -14,6 +14,7 @@ Set-StrictMode -Version Latest
 $Script:Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Script:ConfigPath = if ([string]::IsNullOrWhiteSpace($ConfigPath)) { Join-Path $Script:Root "config\games.json" } else { $ConfigPath }
 $Script:Workspace = Join-Path $Script:Root "workspace"
+$Script:Inbox = Join-Path $Script:Root "inbox"
 $Script:NamePattern = '^(Win|Mac)_([A-Za-z0-9]+)_([0-9]+\.[0-9]+\.[0-9]+)(_Demo)?\.zip$'
 
 function Write-Info {
@@ -61,14 +62,39 @@ function Get-PackagePaths {
         return $paths.ToArray()
     }
 
+    return Get-InboxPackagePaths
+}
+
+function Get-InboxPackagePaths {
+    New-Item -ItemType Directory -Path $Script:Inbox -Force | Out-Null
+
     Write-Host ""
-    Write-Host "Drag one or more .zip packages here, then press Enter:"
-    $inputText = Read-Host
-    $paths = Split-DraggedPaths -InputText $inputText
-    if ($paths.Count -eq 0) {
-        throw "No package path was provided."
+    Write-Host "Put one or more .zip packages into this folder:"
+    Write-Host "  $Script:Inbox" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "The folder will open now. Copy the packages there, then return to this window and press Enter."
+
+    try {
+        Start-Process explorer.exe -ArgumentList "`"$Script:Inbox`""
     }
-    return $paths
+    catch {
+        Write-Warn "Could not open folder automatically: $($_.Exception.Message)"
+    }
+
+    Read-Host "Press Enter after copying packages"
+
+    $archives = @(Get-ChildItem -LiteralPath $Script:Inbox -File -Filter "*.zip" | Sort-Object Name)
+    $unsupported = @(Get-ChildItem -LiteralPath $Script:Inbox -File | Where-Object { $_.Extension -in @(".rar", ".7z") } | Sort-Object Name)
+    if ($unsupported.Count -gt 0) {
+        $names = ($unsupported | ForEach-Object { $_.Name }) -join ", "
+        throw "Unsupported archive(s) in inbox: $names. Please remove them and provide .zip files only."
+    }
+    if ($archives.Count -eq 0) {
+        throw "No .zip packages found in $Script:Inbox."
+    }
+
+    Write-Info "Found $($archives.Count) package(s) in inbox."
+    return @($archives | ForEach-Object { $_.FullName })
 }
 
 function Load-Config {

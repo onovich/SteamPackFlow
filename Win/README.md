@@ -64,7 +64,7 @@ Double-click:
 UploadSteamBuild.bat
 ```
 
-Then drag one or more zip packages into the terminal window and press Enter.
+The script opens `Win/inbox`. Copy one or more zip packages into that folder, return to the terminal window, and press Enter. The script scans every `.zip` in `Win/inbox`.
 
 Preview only:
 

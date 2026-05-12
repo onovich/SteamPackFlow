@@ -21,6 +21,8 @@ Mac/public/
 Mac/update_hosts_cached.vdf
 Win/builder/*
 !Win/builder/.gitkeep
+Win/inbox/*
+!Win/inbox/.gitkeep
 Win/workspace/
 
 # Platform/editor noise
