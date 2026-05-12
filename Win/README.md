@@ -5,12 +5,13 @@ This directory contains the Windows upload workflow for SteamCMD.
 ## First-time setup
 
 1. Put the Windows SteamCMD executable at `Win/builder/steamcmd.exe`.
-2. Edit `Win/config/games.json`.
-3. Fill each game's `appId`, `Win` depot ID, and `Mac` depot ID for both `full` and `demo` releases.
-4. Keep `setLive` as `test` until you intentionally want to publish to another branch.
-5. Steam username is entered at runtime. Password and Steam Guard code are handled by SteamCMD in the terminal.
+2. Run the script once, or copy `Win/config/games.example.json` to `Win/config/games.json`.
+3. Edit `Win/config/games.json`.
+4. Fill each game's `appId`, `Win` depot ID, and `Mac` depot ID for the release types that exist.
+5. Keep `setLive` as `test` until you intentionally want to publish to another branch.
+6. Steam username is entered at runtime. Password and Steam Guard code are handled by SteamCMD in the terminal.
 
-`games.example.json` is a small reference. `games.json` is the file used by the script.
+`games.example.json` is a small reference. `games.json` is the file used by the script and is intentionally ignored by git because it can contain private AppIDs and DepotIDs. If `games.json` does not exist, the script creates a blank template and stops so you can fill it in.
 
 ## Config fields
 

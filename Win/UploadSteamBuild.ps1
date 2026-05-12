@@ -73,11 +73,46 @@ function Get-PackagePaths {
 
 function Load-Config {
     if (-not (Test-Path -LiteralPath $Script:ConfigPath)) {
-        throw "Missing config file: $Script:ConfigPath"
+        New-EmptyConfig -Path $Script:ConfigPath
+        throw "Missing config file. A blank template was created at $Script:ConfigPath. Please edit it with real game names, AppIDs, and DepotIDs, then run this tool again."
     }
 
     $raw = Get-Content -LiteralPath $Script:ConfigPath -Raw -Encoding UTF8
     return $raw | ConvertFrom-Json
+}
+
+function New-EmptyConfig {
+    param([string]$Path)
+
+    $dir = Split-Path -Parent $Path
+    if (-not [string]::IsNullOrWhiteSpace($dir)) {
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    }
+
+    $template = [ordered]@{
+        setLive = "test"
+        steamCmdPath = "builder\steamcmd.exe"
+        games = [ordered]@{
+            YourGameName = [ordered]@{
+                full = [ordered]@{
+                    appId = ""
+                    depots = [ordered]@{
+                        Win = ""
+                        Mac = ""
+                    }
+                }
+                demo = [ordered]@{
+                    appId = ""
+                    depots = [ordered]@{
+                        Win = ""
+                        Mac = ""
+                    }
+                }
+            }
+        }
+    }
+
+    $template | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $Path -Encoding UTF8
 }
 
 function Test-Placeholder {

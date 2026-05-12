@@ -31,3 +31,4 @@ Thumbs.db
 *.local.json
 *.local.ps1
 *.secret.*
+Win/config/games.json
