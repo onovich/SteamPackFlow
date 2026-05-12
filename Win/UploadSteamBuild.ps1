@@ -119,6 +119,31 @@ function Get-LocalizedText {
     return $English
 }
 
+function Test-FolderAlreadyOpen {
+    param([string]$Path)
+
+    try {
+        $target = [System.IO.Path]::GetFullPath($Path).TrimEnd('\')
+        $shell = New-Object -ComObject Shell.Application
+        foreach ($window in @($shell.Windows())) {
+            $locationUrl = [string]$window.LocationURL
+            if ([string]::IsNullOrWhiteSpace($locationUrl)) {
+                continue
+            }
+
+            $windowPath = [System.Uri]::UnescapeDataString((New-Object System.Uri($locationUrl)).LocalPath).TrimEnd('\')
+            if ([string]::Equals($windowPath, $target, [System.StringComparison]::OrdinalIgnoreCase)) {
+                return $true
+            }
+        }
+    }
+    catch {
+        return $false
+    }
+
+    return $false
+}
+
 function Write-Info {
     param([string]$Message)
     $prefix = & T -Key "InfoPrefix"
@@ -182,11 +207,13 @@ function Get-InboxPackagePaths {
     Write-Host ""
     Write-Host $(& T -Key "InboxOpen")
 
-    try {
-        Start-Process explorer.exe -ArgumentList "`"$Script:Inbox`""
-    }
-    catch {
-        Write-Warn $(& T -Key "InboxOpenFailed" -Values @($_.Exception.Message))
+    if (-not (Test-FolderAlreadyOpen -Path $Script:Inbox)) {
+        try {
+            Start-Process explorer.exe -ArgumentList "`"$Script:Inbox`""
+        }
+        catch {
+            Write-Warn $(& T -Key "InboxOpenFailed" -Values @($_.Exception.Message))
+        }
     }
 
     while ($true) {
