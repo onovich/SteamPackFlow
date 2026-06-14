@@ -1,0 +1,174 @@
+{
+  "setLive": "",
+  "steamCmdPath": "builder\\steamcmd.exe",
+  "games": {
+    "FactorZoo": {
+      "full": {
+        "entryNames": {
+          "Win": "FactorZoo.exe",
+          "Mac": "FactorZoo.app"
+        },
+        "appId": "4583040",
+        "depots": {
+          "Win": "4583041",
+          "Mac": "4583042"
+        }
+      },
+      "demo": {
+        "entryNames": {
+          "Win": "FactorZooDemo.exe",
+          "Mac": "FactorZooDemo.app"
+        },
+        "appId": "4621750",
+        "depots": {
+          "Win": "4621751",
+          "Mac": "4621752"
+        }
+      }
+    },
+    "Life": {
+      "full": {
+        "entryNames": {
+          "Win": "Life.exe",
+          "Mac": "Life.app"
+        },
+        "appId": "4583170",
+        "depots": {
+          "Win": "4583171",
+          "Mac": "4583172"
+        }
+      },
+      "demo": {
+        "entryNames": {
+          "Win": "LifeDemo.exe",
+          "Mac": "LifeDemo.app"
+        },
+        "appId": "4618710",
+        "depots": {
+          "Win": "4618711",
+          "Mac": "4618712"
+        }
+      }
+    },
+    "Misplaced": {
+      "full": {
+        "entryNames": {
+          "Win": "Misplaced.exe",
+          "Mac": "Misplaced.app"
+        },
+        "appId": "4583070",
+        "depots": {
+          "Win": "4583071",
+          "Mac": "4583072"
+        }
+      },
+      "demo": {
+        "entryNames": {
+          "Win": "Misplaced.exe",
+          "Mac": "Misplaced.app"
+        },
+        "appId": "4621770",
+        "depots": {
+          "Win": "4621771",
+          "Mac": "4621772"
+        }
+      }
+    },
+    "SignIt": {
+      "full": {
+        "entryNames": {
+          "Win": "SignIt.exe",
+          "Mac": "SignIt.app"
+        },
+        "appId": "4583010",
+        "depots": {
+          "Win": "4583011",
+          "Mac": "4583012"
+        }
+      },
+      "demo": {
+        "entryNames": {
+          "Win": "SignItDemo.exe",
+          "Mac": "SignItDemo.app"
+        },
+        "appId": "4618700",
+        "depots": {
+          "Win": "4618701",
+          "Mac": "4618702"
+        }
+      }
+    },
+    "DebtFeedsDebt": {
+      "full": {
+        "entryNames": {
+          "Win": "DebtFeedsDebt.exe",
+          "Mac": "DebtFeedsDebt.app"
+        },
+        "appId": "4583030",
+        "depots": {
+          "Win": "4583031",
+          "Mac": "4583032"
+        }
+      },
+      "demo": {
+        "entryNames": {
+          "Win": "DebtFeedsDebtDemo.exe",
+          "Mac": "DebtFeedsDebtDemo.app"
+        },
+        "appId": "4621780",
+        "depots": {
+          "Win": "4621781",
+          "Mac": "4621782"
+        }
+      }
+    },
+    "Philomela": {
+      "full": {
+        "entryNames": {
+          "Win": "Philomela.exe",
+          "Mac": "Philomela.app"
+        },
+        "appId": "4583060",
+        "depots": {
+          "Win": "4583061",
+          "Mac": "4583062"
+        }
+      },
+      "demo": {
+        "entryNames": {
+          "Win": "PhilomelaDemo.exe",
+          "Mac": "PhilomelaDemo.app"
+        },
+        "appId": "4621760",
+        "depots": {
+          "Win": "4621761",
+          "Mac": "4621762"
+        }
+      }
+    },
+    "DoubleJeopardy": {
+      "full": {
+        "entryNames": {
+          "Win": "DoubleJeopardy.exe",
+          "Mac": "DoubleJeopardy.app"
+        },
+        "appId": "4031340",
+        "depots": {
+          "Win": "4031341",
+          "Mac": "4031342"
+        }
+      },
+      "demo": {
+        "entryNames": {
+          "Win": "DoubleJeopardy.exe",
+          "Mac": "DoubleJeopardy.app"
+        },
+        "appId": "4106000",
+        "depots": {
+          "Win": "4106003",
+          "Mac": "4106004"
+        }
+      }
+    }
+  }
+}
