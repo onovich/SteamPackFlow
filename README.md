@@ -6,7 +6,7 @@ SteamPackFlow is a SteamCMD upload workflow for validating package names, normal
 
 This repository currently distributes the upload workflow under `Win/` and is designed to make batch uploads with SteamCMD easier on Windows.<br/>**当前仓库实际分发的是 `Win/` 下的上传流程，设计目标是在 Windows 系统上更方便地使用 SteamCMD 进行批量上传。**
 
-It scans packages from `Win/inbox`, validates file names, extracts content into `Win/workspace`, fixes entry names, groups uploads by AppID, and submits builds through SteamCMD.<br/>**它会从 `Win/inbox` 扫描压缩包，校验文件命名，解压到 `Win/workspace`，修正入口名称，按 AppID 分组上传，并通过 SteamCMD 提交构建。**
+It scans packages from `Win/inbox`, validates file names, extracts content into `Win/workspace`, fixes entry names, queues each platform package as its own upload task, and submits builds through SteamCMD.<br/>**它会从 `Win/inbox` 扫描压缩包，校验文件命名，解压到 `Win/workspace`，修正入口名称，并把每个平台压缩包分别排成独立上传任务，再通过 SteamCMD 提交构建。**
 
 ## Setup
 
@@ -17,7 +17,7 @@ It scans packages from `Win/inbox`, validates file names, extracts content into 
 
 ## Configuration
 
-The main local configuration file is `Win/config/games.json`, and it is intentionally ignored by git because it may contain private AppIDs and DepotIDs.<br/>**主要的本地配置文件是 `Win/config/games.json`，它被故意排除在 git 之外，因为其中可能包含私有 AppID 和 DepotID。**
+The shared release configuration is stored in `Win/config/games.json` so maintainers use the same AppIDs, DepotIDs, and entry names. Keep credentials and machine-specific overrides in ignored local files, never in this shared config.<br/>**团队共用的发布配置保存在 `Win/config/games.json`，确保维护者使用一致的 AppID、DepotID 和入口名称。账号凭据和机器专用覆盖配置应放在已忽略的本地文件中，绝不能写入这份共享配置。**
 Each game should define separate `full` and `demo` release groups so the script can resolve the correct AppID, depot IDs, and target entry names from the package name.<br/>**每个游戏都应分别定义 `full` 和 `demo` 两个发行组，这样脚本才能根据包名解析出正确的 AppID、depot ID 和目标入口文件名。**
 
 Configuration example:<br/>**配置示例：**
@@ -69,8 +69,8 @@ After a real upload succeeds, any source zip that came from `Win/inbox` is moved
 
 ## Upload Behavior
 
-Packages with the same game, release type, version, and AppID are merged into one Steam app build, so a matching Win and Mac pair uploads together under one AppID with two depots.<br/>**相同游戏、相同发行类型、相同版本和相同 AppID 的包会被合并成一个 Steam app build，因此匹配的 Win 和 Mac 包会在同一个 AppID 下以两个 depot 一起上传。**
+Packages are queued separately per platform package. A matching Win and Mac pair for the same game, release type, version, and AppID becomes two sequential Steam app build submissions instead of one merged build.<br/>**每个平台压缩包都会单独进入队列。即使同一个游戏、同一发行类型、同一版本、同一 AppID 同时提供了 Win 和 Mac 包，也会拆成两个连续的 Steam app build 提交，而不是合并成一次。**
 
-Different AppIDs become separate queued tasks and run one after another.<br/>**不同 AppID 会拆成独立任务，并按顺序排队执行。**
+Queued tasks run one after another in order. Different AppIDs are still separated, and the same AppID may appear more than once when multiple platform packages are submitted together.<br/>**队列中的任务会按顺序逐个执行。不同 AppID 仍然会拆开处理，而当多个平台包一起提交时，同一个 AppID 也可能在队列里出现多次。**
 
 SteamCMD uploads the extracted `Win/workspace/content/<AppID>` tree through generated VDF files, so the original zip is only an input archive and is never repackaged during upload.<br/>**SteamCMD 通过生成的 VDF 直接上传 `Win/workspace/content/<AppID>` 下的解压内容树，因此原始 zip 只是输入源，上传过程中不会被重新打包。**

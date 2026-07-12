@@ -13,9 +13,11 @@ docs/
 **/output/
 **/logs/
 **/package/
+**/dumps/
 *.log
 *.csm
 *.csd
+*.dmp
 
 # SteamCMD runtime binaries copied from Valve packages
 Mac/steamcmd
@@ -33,8 +35,7 @@ Win/workspace/
 .DS_Store
 Thumbs.db
 
-# Local secrets and machine-specific config
+# Local secrets and machine-specific overrides
 *.local.json
 *.local.ps1
 *.secret.*
-Win/config/games.json

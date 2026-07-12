@@ -145,6 +145,26 @@ function Test-FolderAlreadyOpen {
     return $false
 }
 
+function Open-FolderWindow {
+    param([string]$Path)
+
+    $target = [System.IO.Path]::GetFullPath($Path)
+
+    try {
+        Start-Process -FilePath $target -ErrorAction Stop | Out-Null
+        return
+    }
+    catch {
+    }
+
+    try {
+        Start-Process -FilePath "explorer.exe" -ArgumentList "`"$target`"" -ErrorAction Stop | Out-Null
+    }
+    catch {
+        Write-Warn $(& T -Key "InboxOpenFailed" -Values @($_.Exception.Message))
+    }
+}
+
 function Write-Info {
     param([string]$Message)
     $prefix = & T -Key "InfoPrefix"
@@ -209,12 +229,7 @@ function Get-InboxPackagePaths {
     Write-Host $(& T -Key "InboxOpen")
 
     if (-not (Test-FolderAlreadyOpen -Path $Script:Inbox)) {
-        try {
-            Start-Process explorer.exe -ArgumentList "`"$Script:Inbox`""
-        }
-        catch {
-            Write-Warn $(& T -Key "InboxOpenFailed" -Values @($_.Exception.Message))
-        }
+        Open-FolderWindow -Path $Script:Inbox
     }
 
     while ($true) {
@@ -671,7 +686,7 @@ function Group-Packages {
 
     $groups = @{}
     foreach ($pkg in $Packages) {
-        $key = "$($pkg.AppId)|$($pkg.Game)|$($pkg.ReleaseKey)|$($pkg.Version)"
+        $key = "$($pkg.AppId)|$($pkg.Game)|$($pkg.ReleaseKey)|$($pkg.Version)|$($pkg.Platform)"
         if (-not $groups.ContainsKey($key)) {
             $groups[$key] = [ordered]@{
                 Key = $key
@@ -679,6 +694,7 @@ function Group-Packages {
                 Game = $pkg.Game
                 Version = $pkg.Version
                 ReleaseKey = $pkg.ReleaseKey
+                Platform = $pkg.Platform
                 Packages = @()
             }
         }
@@ -691,6 +707,19 @@ function Group-Packages {
     }
 
     return @($groups.Values | ForEach-Object { [pscustomobject]$_ })
+}
+
+function Get-TaskPlatformSummary {
+    param([object]$Task)
+
+    return (($Task.Packages | Sort-Object Platform | ForEach-Object { $_.Platform }) -join ", ")
+}
+
+function Get-TaskLabel {
+    param([object]$Task)
+
+    $platforms = Get-TaskPlatformSummary -Task $Task
+    return "$($Task.Game) $($Task.Version) $($Task.ReleaseKey) [$platforms]"
 }
 
 function Get-DoneArchiveDestinationPath {
@@ -1316,7 +1345,14 @@ function Prompt-OpenSteamworks {
     if ($SucceededTasks.Count -eq 0) { return }
 
     Write-Host ""
+    $seenAppIds = @{}
     foreach ($task in $SucceededTasks) {
+        $appId = [string]$task.AppId
+        if ($seenAppIds.ContainsKey($appId)) {
+            continue
+        }
+
+        $seenAppIds[$appId] = $true
         $url = "https://partner.steamgames.com/apps/builds/$($task.AppId)"
         Write-Host "Steamworks: $url"
         $answer = Read-Host $(& T -Key "OpenSteamworks")
@@ -1371,7 +1407,9 @@ try {
     $failed = @()
     foreach ($task in $tasks) {
         Write-Host ""
-        Write-Info $(& T -Key "Preparing" -Values @($task.AppId, $task.Game, $task.Version, $task.ReleaseKey))
+        $taskLabel = Get-TaskLabel -Task $task
+        $taskPlatforms = Get-TaskPlatformSummary -Task $task
+        Write-Info (("{0} [{1}]" -f ($(& T -Key "Preparing" -Values @($task.AppId, $task.Game, $task.Version, $task.ReleaseKey)), $taskPlatforms)))
         try {
             $prepared = @()
             foreach ($pkg in $task.Packages) {
@@ -1380,7 +1418,7 @@ try {
                 }
                 catch {
                     $failed += [pscustomobject]@{
-                        Task = "$($task.Game) $($task.Version) $($task.ReleaseKey)"
+                        Task = $taskLabel
                         Reason = (Get-LocalizedText -English "Package preparation failed. Rework this file and run it again: {0}" -ChineseBase64 "5YyF5L2T5YeG5aSH5aSx6LSl77yM5ZCO57ut6K+36YeN5paw5aSE55CG6L+Z5Liq5paH5Lu277yaezB9") -f $pkg.FileName
                         Detail = $_.Exception.Message
                     }
@@ -1406,7 +1444,7 @@ try {
             }
             catch {
                 $failed += [pscustomobject]@{
-                    Task = "$($task.Game) $($task.Version) $($task.ReleaseKey)"
+                    Task = $taskLabel
                     Reason = Get-LocalizedText -English "Upload failed. Re-run this task later." -ChineseBase64 "5LiK5Lyg5aSx6LSl77yM5ZCO57ut6K+36YeN5paw5pON5L2c6L+Z5Liq5Lu75Yqh44CC"
                     Detail = $_.Exception.Message
                 }

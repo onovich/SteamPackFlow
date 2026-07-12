@@ -16,8 +16,8 @@
       },
       "demo": {
         "entryNames": {
-          "Win": "FactorZooDemo.exe",
-          "Mac": "FactorZooDemo.app"
+          "Win": "FactorZoo.exe",
+          "Mac": "FactorZoo.app"
         },
         "appId": "4621750",
         "depots": {
@@ -40,8 +40,8 @@
       },
       "demo": {
         "entryNames": {
-          "Win": "LifeDemo.exe",
-          "Mac": "LifeDemo.app"
+          "Win": "Life.exe",
+          "Mac": "Life.app"
         },
         "appId": "4618710",
         "depots": {
@@ -88,8 +88,8 @@
       },
       "demo": {
         "entryNames": {
-          "Win": "SignItDemo.exe",
-          "Mac": "SignItDemo.app"
+          "Win": "SignIt.exe",
+          "Mac": "SignIt.app"
         },
         "appId": "4618700",
         "depots": {
@@ -112,8 +112,8 @@
       },
       "demo": {
         "entryNames": {
-          "Win": "DebtFeedsDebtDemo.exe",
-          "Mac": "DebtFeedsDebtDemo.app"
+          "Win": "DebtFeedsDebt.exe",
+          "Mac": "DebtFeedsDebt.app"
         },
         "appId": "4621780",
         "depots": {
@@ -136,8 +136,8 @@
       },
       "demo": {
         "entryNames": {
-          "Win": "PhilomelaDemo.exe",
-          "Mac": "PhilomelaDemo.app"
+          "Win": "Philomela.exe",
+          "Mac": "Philomela.app"
         },
         "appId": "4621760",
         "depots": {
