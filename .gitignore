@@ -4,8 +4,7 @@ Build/
 *.rar
 *.7z
 
-# Non-distributed legacy workflow and internal notes
-Mac/
+# Internal notes
 docs/
 
 # SteamCMD generated content, cache, and logs
@@ -22,7 +21,7 @@ docs/
 # SteamCMD runtime binaries copied from Valve packages
 Mac/steamcmd
 Mac/*.dylib
-Mac/Frameworks/
+Mac/Frameworks
 Mac/public/
 Mac/update_hosts_cached.vdf
 Win/builder/*
@@ -30,6 +29,11 @@ Win/builder/*
 Win/inbox/*
 !Win/inbox/.gitkeep
 Win/workspace/
+Mac/builder/*
+!Mac/builder/.gitkeep
+Mac/inbox/*
+!Mac/inbox/.gitkeep
+Mac/workspace/
 
 # Platform/editor noise
 .DS_Store
