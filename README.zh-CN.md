@@ -14,43 +14,27 @@
 
 ## 快速开始
 
-以下命令均在仓库根目录执行。
+直接双击下面列出的启动文件即可，无需在终端中输入命令。
 
 ### 首次安装
 
-用途：在新电脑上将 SteamCMD 安装到对应平台的 `builder` 目录；SteamCMD 缺失或损坏时也可用它恢复。通常只需执行一次。
+用途：在新电脑上将 SteamCMD 安装到对应平台的 `builder` 目录；SteamCMD 缺失或损坏时也可用它恢复。通常只需操作一次。
 
-macOS：
+- macOS：双击 `Mac/InstallSteamCMD.command`。
+- Windows：双击 `Win/InstallSteamCMD.bat`。
 
-```bash
-bash Mac/InstallSteamCMD.sh
-```
-
-Windows：
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Win\InstallSteamCMD.ps1
-```
-
-Windows 也可以直接双击 `Win/InstallSteamCMD.bat`。发布脚本检测到 SteamCMD 缺失时会自动安装，因此首次发布前手动安装是可选步骤。
+发布启动器检测到 SteamCMD 缺失时会自动安装，因此首次发布前单独安装是可选步骤。
 
 ### 发布使用
 
-用途：扫描对应平台的 `inbox`，校验并整理构建包、生成 VDF，然后通过 SteamCMD 上传。每次需要发布新构建时执行。
+用途：扫描对应平台的 `inbox`，校验并整理构建包、生成 VDF，然后通过 SteamCMD 上传。每次需要发布新构建时操作。
 
-发布前，请将构建 ZIP 放入 `Mac/inbox` 或 `Win/inbox`，并检查对应的 `config/games.json`。
+发布前，请将构建 ZIP 放入 `Mac/inbox` 或 `Win/inbox`，检查对应的 `config/games.json`，然后根据所需语言双击启动文件：
 
-macOS：
-
-```bash
-bash Mac/UploadSteamBuild.sh
-```
-
-Windows：
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Win\UploadSteamBuild.ps1
-```
+- macOS 中文：`Mac/UploadSteamBuild.zh-CN.command`
+- macOS 英文：`Mac/UploadSteamBuild.en-US.command`
+- Windows 中文：`Win/UploadSteamBuild.zh-CN.bat`
+- Windows 英文：`Win/UploadSteamBuild.en-US.bat`
 
 ## 仓库结构
 
