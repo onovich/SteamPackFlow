@@ -43,3 +43,6 @@ Thumbs.db
 *.local.json
 *.local.ps1
 *.secret.*
+
+# Local companion projects
+/skills/electron-web-steam-packager/
