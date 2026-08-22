@@ -1281,13 +1281,15 @@ function New-VdfFiles {
     }
 }
 
-function Invoke-SteamUpload {
-    param(
-        [object]$Task,
-        [object]$VdfInfo,
-        [object]$Config,
-        [string]$SteamUser
-    )
+function Test-SteamCmdReady {
+    param([string]$Path)
+
+    return ((Test-Path -LiteralPath $Path -PathType Leaf) -and
+        (Get-Item -LiteralPath $Path).Length -gt 0)
+}
+
+function Resolve-SteamCmdPath {
+    param([object]$Config)
 
     $steamCmdPath = [string]$Config.steamCmdPath
     if ([string]::IsNullOrWhiteSpace($steamCmdPath)) {
@@ -1296,8 +1298,53 @@ function Invoke-SteamUpload {
     if (-not [System.IO.Path]::IsPathRooted($steamCmdPath)) {
         $steamCmdPath = Join-Path $Script:Root $steamCmdPath
     }
+    return [System.IO.Path]::GetFullPath($steamCmdPath)
+}
 
-    if (-not (Test-Path -LiteralPath $steamCmdPath)) {
+function Ensure-SteamCmd {
+    param([object]$Config)
+
+    $steamCmdPath = Resolve-SteamCmdPath -Config $Config
+    if (Test-SteamCmdReady -Path $steamCmdPath) {
+        Write-Info ((Get-LocalizedText -English "SteamCMD is ready: {0}" -ChineseBase64 "U3RlYW1DTUQg5bey5bCx57uq77yaezB9") -f $steamCmdPath)
+        return $steamCmdPath
+    }
+
+    $installer = Join-Path $Script:Root "InstallSteamCMD.ps1"
+    $installDir = Split-Path -Parent $steamCmdPath
+    $manualCommand = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$installer`" -InstallDir `"$installDir`""
+    if ((Split-Path -Leaf $steamCmdPath) -ine "steamcmd.exe" -or
+        -not (Test-Path -LiteralPath $installer -PathType Leaf)) {
+        throw (($(& T -Key "SteamCmdMissing" -Values @($steamCmdPath))) + " " +
+            ((Get-LocalizedText -English "Install it manually with: {0}" -ChineseBase64 "6K+35omL5Yqo5a6J6KOF77yaezB9") -f $manualCommand))
+    }
+
+    Write-Info ((Get-LocalizedText -English "Downloading and installing Windows SteamCMD to {0}" -ChineseBase64 "5q2j5Zyo5LiL6L295bm25a6J6KOFIFdpbmRvd3MgU3RlYW1DTUQg5YiwIHswfQ==") -f $installDir)
+    try {
+        & $installer -InstallDir $installDir
+    }
+    catch {
+        throw (((Get-LocalizedText -English "SteamCMD installation failed. You can also run manually: {0}" -ChineseBase64 "U3RlYW1DTUQg5a6J6KOF5aSx6LSl44CC5Lmf5Y+v5omL5Yqo6L+Q6KGM77yaezB9") -f $manualCommand) + " " + $_.Exception.Message)
+    }
+
+    if (-not (Test-SteamCmdReady -Path $steamCmdPath)) {
+        throw $(& T -Key "SteamCmdMissing" -Values @($steamCmdPath))
+    }
+    Write-Info ((Get-LocalizedText -English "SteamCMD is ready: {0}" -ChineseBase64 "U3RlYW1DTUQg5bey5bCx57uq77yaezB9") -f $steamCmdPath)
+    return $steamCmdPath
+}
+
+function Invoke-SteamUpload {
+    param(
+        [object]$Task,
+        [object]$VdfInfo,
+        [object]$Config,
+        [string]$SteamUser
+    )
+
+    $steamCmdPath = Resolve-SteamCmdPath -Config $Config
+
+    if (-not (Test-SteamCmdReady -Path $steamCmdPath)) {
         throw $(& T -Key "SteamCmdMissing" -Values @($steamCmdPath))
     }
 
@@ -1399,6 +1446,7 @@ try {
 
     $uploadSteamUser = $null
     if (-not $DryRun) {
+        $null = Ensure-SteamCmd -Config $config
         $uploadSteamUser = Get-SteamUser -ProvidedSteamUser $SteamUser
         Write-Warn $(& T -Key "SteamCmdPasswordHint")
     }

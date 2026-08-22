@@ -20,7 +20,11 @@
 
 - `Mac/UploadSteamBuild.sh`
 
+- `Win/InstallSteamCMD.bat` 或 `Win/InstallSteamCMD.ps1`
+
 - `Win/UploadSteamBuild.ps1`
+
+两端上传器都会在 SteamCMD 缺失时自动安装到配置的默认 `builder` 目录。也可以在首次上传前单独运行安装脚本来准备环境。
 
 ## 仓库结构
 

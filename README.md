@@ -20,7 +20,11 @@ Choose the script for the target platform and review its configuration block bef
 
 - `Mac/UploadSteamBuild.sh`
 
+- `Win/InstallSteamCMD.bat` or `Win/InstallSteamCMD.ps1`
+
 - `Win/UploadSteamBuild.ps1`
+
+Both uploaders install SteamCMD into their configured default `builder` directory when it is missing. The standalone installers are useful for preparing a machine before the first upload.
 
 ## Repository map
 
