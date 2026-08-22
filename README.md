@@ -25,11 +25,28 @@ Purpose: install SteamCMD into the platform's `builder` directory on a new machi
 
 The upload launchers automatically install SteamCMD when it is missing, so this standalone setup step is optional before the first upload.
 
+### Configure a game
+
+Edit `Win/config/games.json` or `Mac/config/games.json` and add the game under `games`:
+
+```json
+{
+  "games": {
+    "MyGame": {
+      "full": { "entryNames": { "Win": "MyGame.exe", "Mac": "MyGame.app" }, "appId": "APP_ID", "depots": { "Win": "WIN_DEPOT_ID", "Mac": "MAC_DEPOT_ID" } },
+      "demo": { "entryNames": { "Win": "MyGame.exe", "Mac": "MyGame.app" }, "appId": "DEMO_APP_ID", "depots": { "Win": "DEMO_WIN_DEPOT_ID", "Mac": "DEMO_MAC_DEPOT_ID" } }
+    }
+  }
+}
+```
+
+`entryNames` is the Steam launch `.exe`/`.app`; copy AppIDs and DepotIDs from Steamworks. The alphanumeric game key must match the ZIP name: `Win_MyGame_1.2.3_Demo.zip` selects `demo`; without `_Demo`, it selects `full`. Leave `steamCmdPath` unchanged and `setLive` empty to upload without automatically making the build live. Never store Steam usernames, passwords, or API keys here.
+
 ### Publishing a build
 
 Purpose: scan the platform `inbox`, validate and prepare build packages, generate VDF files, and upload the build through SteamCMD. Use this step whenever you want to publish a build.
 
-Before publishing, place the build ZIP in `Mac/inbox` or `Win/inbox`, review the corresponding `config/games.json`, and then double-click the launcher for the desired language:
+Place the build ZIP in `Mac/inbox` or `Win/inbox`, then double-click the launcher for the desired language:
 
 - macOS Chinese: `Mac/UploadSteamBuild.zh-CN.command`
 - macOS English: `Mac/UploadSteamBuild.en-US.command`

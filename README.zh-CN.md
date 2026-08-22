@@ -25,11 +25,28 @@
 
 发布启动器检测到 SteamCMD 缺失时会自动安装，因此首次发布前单独安装是可选步骤。
 
+### 配置游戏
+
+编辑 `Win/config/games.json` 或 `Mac/config/games.json`，在 `games` 下添加游戏：
+
+```json
+{
+  "games": {
+    "MyGame": {
+      "full": { "entryNames": { "Win": "MyGame.exe", "Mac": "MyGame.app" }, "appId": "APP_ID", "depots": { "Win": "WIN_DEPOT_ID", "Mac": "MAC_DEPOT_ID" } },
+      "demo": { "entryNames": { "Win": "MyGame.exe", "Mac": "MyGame.app" }, "appId": "DEMO_APP_ID", "depots": { "Win": "DEMO_WIN_DEPOT_ID", "Mac": "DEMO_MAC_DEPOT_ID" } }
+    }
+  }
+}
+```
+
+`entryNames` 是 Steam 启动用的 `.exe`/`.app`，AppID 和 DepotID 从 Steamworks 获取。游戏键只能使用字母和数字，并且必须与 ZIP 文件名一致：`Win_MyGame_1.2.3_Demo.zip` 使用 `demo`，不带 `_Demo` 时使用 `full`。`steamCmdPath` 通常无需修改；`setLive` 留空表示只上传、不自动上线。不要在配置中保存 Steam 用户名、密码或 API Key。
+
 ### 发布使用
 
 用途：扫描对应平台的 `inbox`，校验并整理构建包、生成 VDF，然后通过 SteamCMD 上传。每次需要发布新构建时操作。
 
-发布前，请将构建 ZIP 放入 `Mac/inbox` 或 `Win/inbox`，检查对应的 `config/games.json`，然后根据所需语言双击启动文件：
+将构建 ZIP 放入 `Mac/inbox` 或 `Win/inbox`，然后根据所需语言双击启动文件：
 
 - macOS 中文：`Mac/UploadSteamBuild.zh-CN.command`
 - macOS 英文：`Mac/UploadSteamBuild.en-US.command`
