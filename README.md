@@ -14,17 +14,43 @@ Validate, describe, and upload Steam builds.
 
 ## Getting started
 
-Choose the script for the target platform and review its configuration block before running it:
+Run these commands from the repository root.
 
-- `Mac/InstallSteamCMD.sh`
+### First-time setup
 
-- `Mac/UploadSteamBuild.sh`
+Purpose: install SteamCMD into the platform's `builder` directory on a new machine, or restore it if it is missing or damaged. You normally need this command only once.
 
-- `Win/InstallSteamCMD.bat` or `Win/InstallSteamCMD.ps1`
+macOS:
 
-- `Win/UploadSteamBuild.ps1`
+```bash
+bash Mac/InstallSteamCMD.sh
+```
 
-Both uploaders install SteamCMD into their configured default `builder` directory when it is missing. The standalone installers are useful for preparing a machine before the first upload.
+Windows:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Win\InstallSteamCMD.ps1
+```
+
+You can also double-click `Win/InstallSteamCMD.bat`. The upload scripts automatically install SteamCMD when it is missing, so the standalone setup step is optional before the first upload.
+
+### Publishing a build
+
+Purpose: scan the platform `inbox`, validate and prepare build packages, generate VDF files, and upload the build through SteamCMD. Use this command whenever you want to publish a build.
+
+Before publishing, place the build ZIP in `Mac/inbox` or `Win/inbox` and review the corresponding `config/games.json`.
+
+macOS:
+
+```bash
+bash Mac/UploadSteamBuild.sh
+```
+
+Windows:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Win\UploadSteamBuild.ps1
+```
 
 ## Repository map
 

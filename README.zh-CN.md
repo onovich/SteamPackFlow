@@ -14,17 +14,43 @@
 
 ## 快速开始
 
-根据目标平台选择仓库内的脚本，并先阅读脚本顶部的配置项：
+以下命令均在仓库根目录执行。
 
-- `Mac/InstallSteamCMD.sh`
+### 首次安装
 
-- `Mac/UploadSteamBuild.sh`
+用途：在新电脑上将 SteamCMD 安装到对应平台的 `builder` 目录；SteamCMD 缺失或损坏时也可用它恢复。通常只需执行一次。
 
-- `Win/InstallSteamCMD.bat` 或 `Win/InstallSteamCMD.ps1`
+macOS：
 
-- `Win/UploadSteamBuild.ps1`
+```bash
+bash Mac/InstallSteamCMD.sh
+```
 
-两端上传器都会在 SteamCMD 缺失时自动安装到配置的默认 `builder` 目录。也可以在首次上传前单独运行安装脚本来准备环境。
+Windows：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Win\InstallSteamCMD.ps1
+```
+
+Windows 也可以直接双击 `Win/InstallSteamCMD.bat`。发布脚本检测到 SteamCMD 缺失时会自动安装，因此首次发布前手动安装是可选步骤。
+
+### 发布使用
+
+用途：扫描对应平台的 `inbox`，校验并整理构建包、生成 VDF，然后通过 SteamCMD 上传。每次需要发布新构建时执行。
+
+发布前，请将构建 ZIP 放入 `Mac/inbox` 或 `Win/inbox`，并检查对应的 `config/games.json`。
+
+macOS：
+
+```bash
+bash Mac/UploadSteamBuild.sh
+```
+
+Windows：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Win\UploadSteamBuild.ps1
+```
 
 ## 仓库结构
 
