@@ -1,0 +1,112 @@
+# Copy to .github/workflows/electron-steam-build.yml.
+# ADAPT the project values below. This workflow builds verified archives; it does not publish Steam.
+name: Electron Steam artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: Steam release kind
+        required: true
+        type: choice
+        options:
+          - full
+          - demo
+
+permissions:
+  contents: read
+
+env:
+  SKILL_DIR: tools/electron-web-steam-packager # ADAPT if copied elsewhere
+  GAME_KEY: ExampleGame                       # ADAPT: archive-safe stable key
+  ENTRY_EXECUTABLE: ExampleGame.exe           # ADAPT: exact Steam launch option
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }} (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win
+            arch: x64
+          - os: macos-latest
+            platform: mac
+            arch: universal
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - id: metadata
+        name: Read release version
+        shell: bash
+        run: |
+          echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Build unpacked Electron app and verify contract
+        shell: bash
+        run: |
+          EXTRA_ARGS=()
+          if [[ "${{ matrix.platform }}" == "mac" ]]; then
+            EXTRA_ARGS+=(--unsigned-mac) # ADAPT: remove when CI signing is configured
+          fi
+          node "$SKILL_DIR/scripts/build.mjs" \
+            --project-dir . \
+            --platform "${{ matrix.platform }}" \
+            --arch "${{ matrix.arch }}" \
+            --web-script build \
+            --release-version "${{ steps.metadata.outputs.version }}" \
+            --result-file ".steam-build/${{ matrix.platform }}.json" \
+            "${EXTRA_ARGS[@]}"
+
+      - name: Prepare Windows Steam archive
+        if: matrix.platform == 'win'
+        shell: pwsh
+        run: |
+          $result = Get-Content -LiteralPath '.steam-build/win.json' -Raw | ConvertFrom-Json
+          $arguments = @(
+            '-BuildDir', $result.artifactPath,
+            '-OutputDir', 'steam-artifacts',
+            '-GameKey', $env:GAME_KEY,
+            '-Version', '${{ steps.metadata.outputs.version }}',
+            '-Release', '${{ inputs.release }}',
+            '-EntryExecutable', $env:ENTRY_EXECUTABLE
+          )
+          & "$env:SKILL_DIR/scripts/prepare-steam-win.ps1" @arguments
+
+      - name: Prepare macOS Steam archive
+        if: matrix.platform == 'mac'
+        shell: bash
+        run: |
+          APP_PATH=$(node -p "require('./.steam-build/mac.json').artifactPath")
+          node "$SKILL_DIR/scripts/prepare-steam-mac.mjs" \
+            --app "$APP_PATH" \
+            --output-dir steam-artifacts \
+            --game-key "$GAME_KEY" \
+            --version "${{ steps.metadata.outputs.version }}" \
+            --release "${{ inputs.release }}"
+
+      - name: Upload verified Steam handoff archive
+        uses: actions/upload-artifact@v7
+        with:
+          name: steam-${{ inputs.release }}-${{ matrix.platform }}-${{ steps.metadata.outputs.version }}
+          path: |
+            steam-artifacts/*.zip
+            steam-artifacts/*.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+  release-gate:
+    name: Both Steam platforms verified
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Windows and macOS Steam artifacts passed their contracts."
+
