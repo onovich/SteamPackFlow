@@ -50,6 +50,12 @@ to upload without automatically making the build live. Never store Steam usernam
 
 Purpose: scan the platform `inbox`, validate and prepare build packages, generate VDF files, and upload the build through SteamCMD. Use this step whenever you want to publish a build.
 
+#### Why Mac publishing was removed from Windows
+
+Windows ZIP handling cannot reliably preserve macOS framework symlinks, Unix executable modes, and
+Apple signing/notarization data. Changing any signed `.app` content invalidates its signature, so the
+Windows launcher rejects Mac ZIPs and Mac builds must be published with the macOS launcher.
+
 Place Windows ZIPs in either platform's `inbox`. A macOS ZIP must stay unchanged and be placed in
 `Mac/inbox`; upload it with the macOS launcher so Electron framework symlinks, executable modes,
 and Apple signing/notarization data are preserved. The Windows launcher intentionally rejects Mac ZIPs.
