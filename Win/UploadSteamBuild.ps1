@@ -615,6 +615,9 @@ function Parse-Package {
     }
 
     $platform = $match.Groups[1].Value
+    if ($platform -eq "Mac") {
+        throw (Get-LocalizedText -English "The Windows uploader cannot safely preserve macOS .app symlinks, executable modes, and signing data. Move the Mac ZIP unchanged to macOS and use the Mac uploader." -ChineseBase64 "V2luZG93cyDkuIrkvKDlmajkuI3og73lronlhajlpITnkIYgbWFjT1MgLmFwcCDnmoTnrKblj7fpk77mjqXjgIHlj6/miafooYzmnYPpmZDlkoznrb7lkI3mlbDmja7jgILor7fmioogTWFjIFpJUCDljp/moLfnp7vliLAgbWFjT1PvvIzlubbkvb/nlKggTWFjIOS4iuS8oOWZqOOAgg==")
+    }
     $game = $match.Groups[2].Value
     $version = $match.Groups[3].Value
     $isDemo = $match.Groups[4].Success

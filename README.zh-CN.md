@@ -33,25 +33,34 @@
 {
   "games": {
     "MyGame": {
-      "full": { "entryNames": { "Win": "MyGame.exe", "Mac": "MyGame.app" }, "appId": "APP_ID", "depots": { "Win": "WIN_DEPOT_ID", "Mac": "MAC_DEPOT_ID" } },
-      "demo": { "entryNames": { "Win": "MyGame.exe", "Mac": "MyGame.app" }, "appId": "DEMO_APP_ID", "depots": { "Win": "DEMO_WIN_DEPOT_ID", "Mac": "DEMO_MAC_DEPOT_ID" } }
+      "full": { "entryNames": { "Win": "MyGame.exe", "Mac": "MyGame.app" }, "appleTeamId": "APPLE_TEAM_ID", "appId": "APP_ID", "depots": { "Win": "WIN_DEPOT_ID", "Mac": "MAC_DEPOT_ID" } },
+      "demo": { "entryNames": { "Win": "MyGame.exe", "Mac": "MyGame.app" }, "appleTeamId": "APPLE_TEAM_ID", "appId": "DEMO_APP_ID", "depots": { "Win": "DEMO_WIN_DEPOT_ID", "Mac": "DEMO_MAC_DEPOT_ID" } }
     }
   }
 }
 ```
 
-`entryNames` 是 Steam 启动用的 `.exe`/`.app`，AppID 和 DepotID 从 Steamworks 获取。游戏键只能使用字母和数字，并且必须与 ZIP 文件名一致：`Win_MyGame_1.2.3_Demo.zip` 使用 `demo`，不带 `_Demo` 时使用 `full`。`steamCmdPath` 通常无需修改；`setLive` 留空表示只上传、不自动上线。不要在配置中保存 Steam 用户名、密码或 API Key。
+`entryNames` 是 Steam 启动用的 `.exe`/`.app`，AppID 和 DepotID 从 Steamworks 获取。
+`appleTeamId` 是用于核对 Mac 签名团队的 10 位 Apple Developer Team ID，属于公开标识，
+不是密码。游戏键只能使用字母和数字，并且必须与 ZIP 文件名一致：
+`Win_MyGame_1.2.3_Demo.zip` 使用 `demo`，不带 `_Demo` 时使用 `full`。`steamCmdPath` 通常
+无需修改；`setLive` 留空表示只上传、不自动上线。不要在配置中保存 Steam 用户名、密码或 API Key。
 
 ### 发布使用
 
 用途：扫描对应平台的 `inbox`，校验并整理构建包、生成 VDF，然后通过 SteamCMD 上传。每次需要发布新构建时操作。
 
-将构建 ZIP 放入 `Mac/inbox` 或 `Win/inbox`，然后根据所需语言双击启动文件：
+Windows ZIP 可以放入任一平台的 `inbox`。macOS ZIP 必须保持原样并放入 `Mac/inbox`，使用
+macOS 启动器上传，以保留 Electron Framework 软链接、可执行权限及 Apple 签名/公证数据；
+Windows 启动器会主动拒绝 Mac ZIP。然后根据所需语言双击启动文件：
 
 - macOS 中文：`Mac/UploadSteamBuild.zh-CN.command`
 - macOS 英文：`Mac/UploadSteamBuild.en-US.command`
 - Windows 中文：`Win/UploadSteamBuild.zh-CN.bat`
 - Windows 英文：`Win/UploadSteamBuild.en-US.bat`
+
+对于已签名的 Mac App，配置中的 `.app` 名和内部可执行文件名必须在构建时就正确。macOS
+上传器会校验 Developer ID、公证票据、Gatekeeper 和系统策略，且绝不会重命名或修改已签名 Bundle。
 
 ## 仓库结构
 

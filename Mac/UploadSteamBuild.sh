@@ -36,6 +36,7 @@ PKG_APP_ID=()
 PKG_DEPOT_ID=()
 PKG_TARGET_ENTRY=()
 PKG_TARGET_STEM=()
+PKG_APPLE_TEAM_ID=()
 
 TASK_KEYS=()
 TASK_INDEXES=()
@@ -131,6 +132,12 @@ msg() {
             PlistFieldUpdated) printf '已更新 %s：%s' "${1-}" "${2-}" ;;
             NoMacExec) printf '在 %s 中没有找到 macOS 可执行文件。' "${1-}" ;;
             MultiMacExec) printf '在 %s 中找到多个 macOS 可执行文件：%s。请只保留一个。' "${1-}" "${2-}" ;;
+            SignedMacNameMismatch) printf '已签名的 macOS App 不允许在上传阶段改名：当前 %s，要求 %s。请重新构建。' "${1-}" "${2-}" ;;
+            SignedMacExecutableMismatch) printf '已签名 App 的入口必须已经是 %s，Info.plist 与文件都不能在上传阶段修改。' "${1-}" ;;
+            SignedMacVerificationFailed) printf '已签名的 macOS App 验证失败：%s' "${1-}" ;;
+            SignedMacTeamMissing) printf '配置缺少有效的 10 位 appleTeamId，无法验证已签名 Mac App 的归属团队：%s' "${1-}" ;;
+            SignedMacTeamMismatch) printf 'Mac App 的签名 Team ID 为 %s，但配置要求 %s。已停止上传。' "${1-}" "${2-}" ;;
+            SignedMacVerified) printf '已签名并公证的 macOS App 验证通过，上传器不会修改它：%s' "${1-}" ;;
             *) printf '%s' "$key" ;;
         esac
     else
@@ -216,6 +223,12 @@ msg() {
             PlistFieldUpdated) printf 'Updated %s: %s' "${1-}" "${2-}" ;;
             NoMacExec) printf 'No macOS executable candidate found in %s.' "${1-}" ;;
             MultiMacExec) printf 'Multiple macOS executable candidates found in %s: %s. Keep only one.' "${1-}" "${2-}" ;;
+            SignedMacNameMismatch) printf 'A signed macOS app cannot be renamed during upload: found %s, expected %s. Rebuild it instead.' "${1-}" "${2-}" ;;
+            SignedMacExecutableMismatch) printf 'The signed app entry must already be %s; neither Info.plist nor the file may be changed during upload.' "${1-}" ;;
+            SignedMacVerificationFailed) printf 'Signed macOS app verification failed: %s' "${1-}" ;;
+            SignedMacTeamMissing) printf 'A valid 10-character appleTeamId is required to verify the signed Mac app team: %s' "${1-}" ;;
+            SignedMacTeamMismatch) printf 'The Mac app is signed by Team ID %s, but config requires %s. Upload stopped.' "${1-}" "${2-}" ;;
+            SignedMacVerified) printf 'Signed and notarized macOS app passed verification and will not be modified: %s' "${1-}" ;;
             *) printf '%s' "$key" ;;
         esac
     fi
@@ -294,6 +307,13 @@ require_dependencies() {
         error "$(msg DependencyMissing plutil)"
         return 1
     fi
+    local dependency
+    for dependency in ditto codesign xcrun spctl; do
+        if ! command -v "$dependency" >/dev/null 2>&1; then
+            error "$(msg DependencyMissing "$dependency")"
+            return 1
+        fi
+    done
     return 0
 }
 
@@ -308,11 +328,13 @@ create_empty_config() {
     "YourGameName": {
       "full": {
         "entryNames": { "Win": "", "Mac": "" },
+        "appleTeamId": "",
         "appId": "",
         "depots": { "Win": "", "Mac": "" }
       },
       "demo": {
         "entryNames": { "Win": "", "Mac": "" },
+        "appleTeamId": "",
         "appId": "",
         "depots": { "Win": "", "Mac": "" }
       }
@@ -328,6 +350,7 @@ ensure_config_schema() {
       def ensure_release($legacy):
         (. // {})
         | .appId = (.appId // "")
+        | .appleTeamId = (.appleTeamId // "")
         | .entryNames = (if (.entryNames | type) == "object" then .entryNames else {} end)
         | .entryNames.Win = (.entryNames.Win // $legacy.Win // "")
         | .entryNames.Mac = (.entryNames.Mac // $legacy.Mac // "")
@@ -549,7 +572,7 @@ resolve_target_entry() {
 }
 
 resolve_game_config() {
-    local game="$1" is_demo="$2" platform="$3" release release_label app depot
+    local game="$1" is_demo="$2" platform="$3" release release_label app depot apple_team_id
     if ! "$JQ_BIN" -e '.games and ((.games | type) == "object")' "$CONFIG_PATH" >/dev/null 2>&1; then
         error "$(msg MissingGames "$CONFIG_PATH")"
         return 1
@@ -576,6 +599,7 @@ resolve_game_config() {
         return 1
     fi
     app="$(json_string "$game" "$release" appId)"
+    apple_team_id="$(json_string "$game" "$release" appleTeamId)"
     depot="$($JQ_BIN -r --arg game "$game" --arg release "$release" --arg platform "$platform" '
       .games[$game][$release].depots[$platform]
       | if . == null then "" elif (type == "string") then . else tostring end
@@ -592,6 +616,7 @@ resolve_game_config() {
     RESOLVED_DEPOT_ID="$depot"
     RESOLVED_TARGET_ENTRY="$TARGET_ENTRY_NAME"
     RESOLVED_TARGET_STEM="$TARGET_ENTRY_STEM"
+    RESOLVED_APPLE_TEAM_ID="$apple_team_id"
     return 0
 }
 
@@ -630,12 +655,13 @@ parse_package() {
     PARSED_DEPOT_ID="$RESOLVED_DEPOT_ID"
     PARSED_TARGET_ENTRY="$RESOLVED_TARGET_ENTRY"
     PARSED_TARGET_STEM="$RESOLVED_TARGET_STEM"
+    PARSED_APPLE_TEAM_ID="$RESOLVED_APPLE_TEAM_ID"
     return 0
 }
 
 resolve_packages_with_retry() {
     while true; do
-        PKG_SOURCE=(); PKG_FILE=(); PKG_PLATFORM=(); PKG_GAME=(); PKG_VERSION=(); PKG_RELEASE=(); PKG_APP_ID=(); PKG_DEPOT_ID=(); PKG_TARGET_ENTRY=(); PKG_TARGET_STEM=()
+        PKG_SOURCE=(); PKG_FILE=(); PKG_PLATFORM=(); PKG_GAME=(); PKG_VERSION=(); PKG_RELEASE=(); PKG_APP_ID=(); PKG_DEPOT_ID=(); PKG_TARGET_ENTRY=(); PKG_TARGET_STEM=(); PKG_APPLE_TEAM_ID=()
         local errors_path=() errors_message=() path index
         for path in "${SELECTED_PATHS[@]}"; do
             if parse_package "$path"; then
@@ -650,6 +676,7 @@ resolve_packages_with_retry() {
                 PKG_DEPOT_ID[index]="$PARSED_DEPOT_ID"
                 PKG_TARGET_ENTRY[index]="$PARSED_TARGET_ENTRY"
                 PKG_TARGET_STEM[index]="$PARSED_TARGET_STEM"
+                PKG_APPLE_TEAM_ID[index]="$PARSED_APPLE_TEAM_ID"
             else
                 errors_path+=("$path")
                 errors_message+=("$LAST_ERROR")
@@ -915,6 +942,65 @@ ensure_mac_bundle_executable() {
     set_mac_plist_executable "$app_path" "$target_name"
 }
 
+mac_app_is_signed() {
+    local app_path="$1"
+    if [[ -d "$app_path/Contents/_CodeSignature" || -f "$app_path/Contents/CodeResources" ]]; then
+        return 0
+    fi
+    codesign --display "$app_path" >/dev/null 2>&1
+}
+
+verify_signed_mac_entry() {
+    local app_path="$1" target_bundle="$2" target_executable="$3" expected_team_id="$4" declared signature_info probe_output actual_team_id
+
+    if [[ "$(basename "$app_path")" != "$target_bundle" ]]; then
+        error "$(msg SignedMacNameMismatch "$(basename "$app_path")" "$target_bundle")"
+        return 1
+    fi
+
+    declared="$(mac_plist_executable "$app_path")"
+    if [[ "$declared" != "$target_executable" || ! -x "$app_path/Contents/MacOS/$target_executable" ]]; then
+        error "$(msg SignedMacExecutableMismatch "$target_executable")"
+        return 1
+    fi
+
+    if ! probe_output="$(codesign --verify --deep --strict --verbose=4 "$app_path" 2>&1)"; then
+        error "$(msg SignedMacVerificationFailed "$probe_output")"
+        return 1
+    fi
+    if ! signature_info="$(codesign --display --verbose=4 "$app_path" 2>&1)" ||
+       ! printf '%s\n' "$signature_info" | grep -q '^Authority=Developer ID Application:'; then
+        error "$(msg SignedMacVerificationFailed 'Developer ID Application authority is missing')"
+        return 1
+    fi
+    if [[ ! "$expected_team_id" =~ ^[A-Z0-9]{10}$ ]]; then
+        error "$(msg SignedMacTeamMissing "$expected_team_id")"
+        return 1
+    fi
+    actual_team_id="$(printf '%s\n' "$signature_info" | sed -n 's/^TeamIdentifier=//p' | head -n 1)"
+    if [[ "$actual_team_id" != "$expected_team_id" ]]; then
+        error "$(msg SignedMacTeamMismatch "${actual_team_id:-missing}" "$expected_team_id")"
+        return 1
+    fi
+    if ! probe_output="$(xcrun stapler validate -v "$app_path" 2>&1)"; then
+        error "$(msg SignedMacVerificationFailed "$probe_output")"
+        return 1
+    fi
+    if ! probe_output="$(spctl --assess --type execute --verbose=4 "$app_path" 2>&1)"; then
+        error "$(msg SignedMacVerificationFailed "$probe_output")"
+        return 1
+    fi
+    if command -v syspolicy_check >/dev/null 2>&1; then
+        if ! probe_output="$(syspolicy_check distribution "$app_path" 2>&1)"; then
+            error "$(msg SignedMacVerificationFailed "$probe_output")"
+            return 1
+        fi
+    fi
+
+    info "$(msg SignedMacVerified "$target_bundle")"
+    return 0
+}
+
 ensure_entry_name() {
     local content_dir="$1" package_index="$2" root platform target_name target_stem item base lower candidates=() entry before old_stem parent target_path ignored=()
     effective_content_root "$content_dir"
@@ -955,6 +1041,10 @@ ensure_entry_name() {
         return 1
     fi
     entry="${candidates[0]}"; before="$(basename "$entry")"; old_stem="${before%.*}"; parent="$(dirname "$entry")"; target_path="$parent/$target_name"
+    if [[ "$platform" == Mac ]] && mac_app_is_signed "$entry"; then
+        verify_signed_mac_entry "$entry" "$target_name" "$target_stem" "${PKG_APPLE_TEAM_ID[package_index]}" || return 1
+        return 0
+    fi
     if [[ "$before" == "$target_name" ]]; then
         info "$(msg EntryOk "$platform" "$target_name")"
         if [[ "$platform" == Win ]]; then
@@ -988,8 +1078,18 @@ expand_package() {
     if ! cp -f "${PKG_SOURCE[package_index]}" "$archive_copy"; then fail "Could not copy ${PKG_FILE[package_index]}"; return 1; fi
     if ! ensure_clean_directory "$content_dir"; then return 1; fi
     info "$(msg Extracting "${PKG_FILE[package_index]}" "$content_dir")"
-    if ! unzip -oq "$archive_copy" -d "$content_dir"; then fail "Could not extract ${PKG_FILE[package_index]}"; return 1; fi
-    remove_mac_junk "$content_dir"
+    if [[ "${PKG_PLATFORM[package_index]}" == Mac ]]; then
+        if ! ditto -x -k "$archive_copy" "$content_dir"; then
+            fail "Could not extract ${PKG_FILE[package_index]} with ditto"
+            return 1
+        fi
+    else
+        if ! unzip -oq "$archive_copy" -d "$content_dir"; then
+            fail "Could not extract ${PKG_FILE[package_index]}"
+            return 1
+        fi
+        remove_mac_junk "$content_dir"
+    fi
     ensure_entry_name "$content_dir" "$package_index"
 }
 

@@ -33,25 +33,36 @@ Edit `Win/config/games.json` or `Mac/config/games.json` and add the game under `
 {
   "games": {
     "MyGame": {
-      "full": { "entryNames": { "Win": "MyGame.exe", "Mac": "MyGame.app" }, "appId": "APP_ID", "depots": { "Win": "WIN_DEPOT_ID", "Mac": "MAC_DEPOT_ID" } },
-      "demo": { "entryNames": { "Win": "MyGame.exe", "Mac": "MyGame.app" }, "appId": "DEMO_APP_ID", "depots": { "Win": "DEMO_WIN_DEPOT_ID", "Mac": "DEMO_MAC_DEPOT_ID" } }
+      "full": { "entryNames": { "Win": "MyGame.exe", "Mac": "MyGame.app" }, "appleTeamId": "APPLE_TEAM_ID", "appId": "APP_ID", "depots": { "Win": "WIN_DEPOT_ID", "Mac": "MAC_DEPOT_ID" } },
+      "demo": { "entryNames": { "Win": "MyGame.exe", "Mac": "MyGame.app" }, "appleTeamId": "APPLE_TEAM_ID", "appId": "DEMO_APP_ID", "depots": { "Win": "DEMO_WIN_DEPOT_ID", "Mac": "DEMO_MAC_DEPOT_ID" } }
     }
   }
 }
 ```
 
-`entryNames` is the Steam launch `.exe`/`.app`; copy AppIDs and DepotIDs from Steamworks. The alphanumeric game key must match the ZIP name: `Win_MyGame_1.2.3_Demo.zip` selects `demo`; without `_Demo`, it selects `full`. Leave `steamCmdPath` unchanged and `setLive` empty to upload without automatically making the build live. Never store Steam usernames, passwords, or API keys here.
+`entryNames` is the Steam launch `.exe`/`.app`; copy AppIDs and DepotIDs from Steamworks.
+`appleTeamId` is the public 10-character Apple Developer Team ID used to verify signed Mac builds; it
+is not a password. The alphanumeric game key must match the ZIP name: `Win_MyGame_1.2.3_Demo.zip`
+selects `demo`; without `_Demo`, it selects `full`. Leave `steamCmdPath` unchanged and `setLive` empty
+to upload without automatically making the build live. Never store Steam usernames, passwords, or API keys here.
 
 ### Publishing a build
 
 Purpose: scan the platform `inbox`, validate and prepare build packages, generate VDF files, and upload the build through SteamCMD. Use this step whenever you want to publish a build.
 
-Place the build ZIP in `Mac/inbox` or `Win/inbox`, then double-click the launcher for the desired language:
+Place Windows ZIPs in either platform's `inbox`. A macOS ZIP must stay unchanged and be placed in
+`Mac/inbox`; upload it with the macOS launcher so Electron framework symlinks, executable modes,
+and Apple signing/notarization data are preserved. The Windows launcher intentionally rejects Mac ZIPs.
+Then double-click the launcher for the desired language:
 
 - macOS Chinese: `Mac/UploadSteamBuild.zh-CN.command`
 - macOS English: `Mac/UploadSteamBuild.en-US.command`
 - Windows Chinese: `Win/UploadSteamBuild.zh-CN.bat`
 - Windows English: `Win/UploadSteamBuild.en-US.bat`
+
+For a signed Mac app, the configured `.app` and internal executable names must already be correct.
+The macOS uploader validates Developer ID, notarization, Gatekeeper, and system policy, and never
+renames or edits a signed bundle.
 
 ## Repository map
 
