@@ -50,12 +50,6 @@
 
 用途：扫描对应平台的 `inbox`，校验并整理构建包、生成 VDF，然后通过 SteamCMD 上传。每次需要发布新构建时操作。
 
-#### 为什么 Win 电脑移除了 Mac 发布功能
-
-Windows 处理 ZIP 时无法可靠保留 macOS Framework 软链接、Unix 可执行权限和 Apple 签名/公证
-数据；签名后的 `.app` 只要内容被改动，签名就会失效。因此 Windows 启动器会拒绝 Mac ZIP。
-请保持 Mac ZIP 原样，将其放入 `Mac/inbox`，再使用 macOS 启动器发布。
-
 Windows ZIP 可以放入任一平台的 `inbox`。然后根据所需语言双击启动文件：
 
 - macOS 中文：`Mac/UploadSteamBuild.zh-CN.command`
@@ -65,6 +59,12 @@ Windows ZIP 可以放入任一平台的 `inbox`。然后根据所需语言双击
 
 对于已签名的 Mac App，配置中的 `.app` 名和内部可执行文件名必须在构建时就正确。macOS
 上传器会校验 Developer ID、公证票据、Gatekeeper 和系统策略，且绝不会重命名或修改已签名 Bundle。
+
+#### 为什么 Win 电脑移除了 Mac 发布功能
+
+Windows 处理 ZIP 时无法可靠保留 macOS Framework 软链接、Unix 可执行权限和 Apple 签名/公证
+数据；签名后的 `.app` 只要内容被改动，签名就会失效。因此 Windows 启动器会拒绝 Mac ZIP。
+请保持 Mac ZIP 原样，将其放入 `Mac/inbox`，再使用 macOS 启动器发布。
 
 ## 仓库结构
 
