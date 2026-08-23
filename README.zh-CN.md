@@ -50,15 +50,16 @@
 
 用途：扫描对应平台的 `inbox`，校验并整理构建包、生成 VDF，然后通过 SteamCMD 上传。每次需要发布新构建时操作。
 
-Windows ZIP 可以放入任一平台的 `inbox`。然后根据所需语言双击启动文件：
+把游戏 ZIP 放入任一平台的 `inbox`，然后根据你能读懂的语言双击启动文件：
+
+压缩 ZIP 时，所有文件都要放在 ZIP 的一级目录里。不要把这些文件上层的文件夹一起打包，否则会多出一层冗余目录。
 
 - macOS 中文：`Mac/UploadSteamBuild.zh-CN.command`
 - macOS 英文：`Mac/UploadSteamBuild.en-US.command`
 - Windows 中文：`Win/UploadSteamBuild.zh-CN.bat`
 - Windows 英文：`Win/UploadSteamBuild.en-US.bat`
 
-对于已签名的 Mac App，配置中的 `.app` 名和内部可执行文件名必须在构建时就正确。macOS
-上传器会校验 Developer ID、公证票据、Gatekeeper 和系统策略，且绝不会重命名或修改已签名 Bundle。
+对于已签名的 Mac App，配置中的 `.app` 名和内部可执行文件名必须在构建时就正确。
 
 #### 为什么 Win 电脑移除了 Mac 发布功能
 

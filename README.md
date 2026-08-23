@@ -50,16 +50,16 @@ to upload without automatically making the build live. Never store Steam usernam
 
 Purpose: scan the platform `inbox`, validate and prepare build packages, generate VDF files, and upload the build through SteamCMD. Use this step whenever you want to publish a build.
 
-Place Windows ZIPs in either platform's `inbox`. Then double-click the launcher for the desired language:
+Place the game ZIP in either platform's `inbox`. Then double-click the launcher in a language you can read:
+
+When creating the ZIP, place all files directly in the ZIP's top-level directory. Do not include their parent folder, because that creates an extra directory level.
 
 - macOS Chinese: `Mac/UploadSteamBuild.zh-CN.command`
 - macOS English: `Mac/UploadSteamBuild.en-US.command`
 - Windows Chinese: `Win/UploadSteamBuild.zh-CN.bat`
 - Windows English: `Win/UploadSteamBuild.en-US.bat`
 
-For a signed Mac app, the configured `.app` and internal executable names must already be correct.
-The macOS uploader validates Developer ID, notarization, Gatekeeper, and system policy, and never
-renames or edits a signed bundle.
+For a signed Mac app, the configured `.app` and internal executable names must already be correct at build time.
 
 #### Why Mac publishing was removed from Windows
 
