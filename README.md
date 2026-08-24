@@ -61,6 +61,16 @@ When creating the ZIP, place all files directly in the ZIP's top-level directory
 
 For a signed Mac app, the configured `.app` and internal executable names must already be correct at build time.
 
+### CI integrations
+
+Automation should invoke the Windows PowerShell uploader with explicit package and Steam user values,
+plus `-NonInteractive`. Add `-StrictArtifact` so CI rejects unexpected entry names or an extra ZIP
+directory instead of repairing the package. Deployment workflows can lock the expected game, platform,
+release, AppID and DepotID and require an empty `setLive`; a mismatch fails before SteamCMD starts.
+Use `-Preview` for the first credential and mapping test: SteamCMD creates the manifest and logs but does
+not upload content. `config.vdf` is a credential and must be restored from a protected secret, never Git,
+an artifact, or a cache.
+
 #### Why Mac publishing was removed from Windows
 
 Windows ZIP handling cannot reliably preserve macOS framework symlinks, Unix executable modes, and

@@ -61,6 +61,15 @@
 
 对于已签名的 Mac App，配置中的 `.app` 名和内部可执行文件名必须在构建时就正确。
 
+### CI 接入
+
+自动化流程应显式传入 Windows 包路径和 Steam 用户名，并启用 `-NonInteractive`。同时启用
+`-StrictArtifact`，让 CI 在入口名称不符或 ZIP 多套一层目录时直接失败，而不是自动修复包。
+部署流程还可以锁定预期的游戏、平台、版本类型、AppID 和 DepotID，并强制 `setLive` 为空；
+任一不符都会在启动 SteamCMD 前终止。首次验证凭据和文件映射时使用 `-Preview`：SteamCMD
+只生成清单和日志，不上传内容。`config.vdf` 属于登录凭据，只能从受保护的 Secret 恢复，
+不得进入 Git、Artifact 或 Cache。
+
 #### 为什么 Win 电脑移除了 Mac 发布功能
 
 Windows 处理 ZIP 时无法可靠保留 macOS Framework 软链接、Unix 可执行权限和 Apple 签名/公证

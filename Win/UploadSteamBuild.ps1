@@ -7,7 +7,21 @@ param(
     [string]$Language = "zh-CN",
     [switch]$PlanOnly,
     [switch]$DryRun,
-    [switch]$AllowPlaceholderConfig
+    [switch]$AllowPlaceholderConfig,
+    [switch]$NonInteractive,
+    [switch]$StrictArtifact,
+    [switch]$Preview,
+    [string]$ExpectedGame,
+    [ValidateSet("Win", "Mac")]
+    [string]$ExpectedPlatform,
+    [ValidateSet("full", "demo")]
+    [string]$ExpectedRelease,
+    [string]$ExpectedAppId,
+    [string]$ExpectedDepotId,
+    [switch]$RequireSetLiveEmpty,
+    [ValidateRange(30, 7200)]
+    [int]$SteamCmdTimeoutSeconds = 1200,
+    [string]$ResultPath
 )
 
 $ErrorActionPreference = "Stop"
@@ -18,7 +32,7 @@ $Script:ConfigPath = if ([string]::IsNullOrWhiteSpace($ConfigPath)) { Join-Path 
 $Script:Workspace = Join-Path $Script:Root "workspace"
 $Script:Inbox = Join-Path $Script:Root "inbox"
 $Script:NamePattern = '^(Win|Mac)_([A-Za-z0-9]+)_([0-9]+\.[0-9]+\.[0-9]+)(_Demo)?\.zip$'
-$Script:InteractiveMode = -not ($PackagePath -and $PackagePath.Count -gt 0)
+$Script:InteractiveMode = (-not $NonInteractive) -and (-not ($PackagePath -and $PackagePath.Count -gt 0))
 $zhJsonBase64 = @(
     "eyJJbmZvUHJlZml4IjoiW+S/oeaBr10iLCJXYXJuUHJlZml4IjoiW+itpuWRil0iLCJFcnJvclByZWZpeCI6IlvplJnor69dIiwiVGl0bGUiOiI9PT09PT09IFN0ZWFtIFdpbmRvd3Mg5LiK5Lyg5bel5YW3ID09PT09PT0iLCJQbGFuT25seU1vZGUiOiLorqHliJLpooTop4jmqKHlvI/vvJrkuI3kvJrlpI3liLbjgIHop6PljovjgIHnlJ/miJAgVkRGIOaIluS4iuS8oOOAgiIsIkRyeVJ1bk1vZGUiOiLlubLot5HmqKHlvI/vvJrlj6rlpI3liLbjgIHop6PljovlubbnlJ/miJAgVkRG77yM5LiN5Lya6LCD55SoIFN0ZWFtQ01EIOS4iuS8oOOAgiIsIkluYm94SW50cm8iOiLor7fmiorkuIDkuKrmiJblpJrkuKogLnppcCDljIXlpI3liLbliLDov5nkuKrmlofku7blpLnvvJoiLCJJbmJveE9wZW4iOiLnjrDlnKjkvJroh6rliqjmiZPlvIDor6Xmlofku7blpLnjgILlpI3liLblrozmiJDlkI7vvIzor7flm57liLDov5nkuKrnqpflj6PlubbmjIkgRW50ZXIg57un57ut44CCIiwiSW5ib3hPcGVuRmFpbGVkIjoi5peg5rOV6Ieq5Yqo5omT5byA5paH5Lu25aS577yaezB9IiwiSW5ib3hDb250aW51ZSI6IuWkjeWItuWujOaIkOWQjuaMiSBFbnRlciDnu6fnu60iLCJJbmJveFVuc3VwcG9ydGVkIjoi5pS25Lu25aS56YeM5Y+R546w5LiN5pSv5oyB55qE5Y6L57yp5YyF77yaezB944CC6K+356e76Zmk"
     "5a6D5Lus77yM5Y+q5L+d55WZIC56aXAg5paH5Lu244CCIiwiSW5ib3hFbXB0eSI6IuWcqCB7MH0g5Lit5rKh5pyJ5om+5YiwIC56aXAg5YyF44CCIiwiSW5ib3hGb3VuZCI6IuWcqOaUtuS7tuWkueS4reaJvuWIsCB7MH0g5Liq5YyF44CCIiwiTWlzc2luZ0NvbmZpZyI6IuayoeacieaJvuWIsOmFjee9ruaWh+S7tuOAguW3suWcqCB7MH0g5Yib5bu656m65qih5p2/44CC6K+35aGr5YaZ55yf5a6e5ri45oiP5ZCN44CBQXBwSUQg5ZKMIERlcG90SUQg5ZCO6YeN5paw6L+Q6KGM5bel5YW344CCIiwiTWlzc2luZ0dhbWVzIjoi6YWN572u5paH5Lu257y65bCR6aG25bGCICdnYW1lcycg5a+56LGh44CC6K+357yW6L6RIHswfeOAgiIsIkdhbWVNaXNzaW5nIjoi5ri45oiPICd7MH0nIOayoeaciemFjee9ruWcqCB7MX0g5Lit44CC6K+35ZyoICdnYW1lcycg5LiL5re75YqgICd7MH0n44CCIiwiUmVsZWFzZU1pc3NpbmciOiLljIUgJ3swfScg5pivezF977yM5L2G6YWN572u5Lit5rKh5pyJICd7MH0uezJ9JyDmrrXjgILor7flhYjooaXlhYUgYXBwSWQg5ZKMIGRlcG90c+OAgiIsIkZ1bGxSZWxlYXNlIjoi5q2j5byP54mIIiwiRGVtb1JlbGVhc2UiOiJEZW1vIOeJiCIsIkFwcElkTWlzc2luZyI6IumFjee9riAnezB9LnsxfScg57y65bCRICdhcHBJZCfjgILor7flhYjooaXlhYUgU3RlYW0gQXBw"
@@ -712,6 +726,58 @@ function Group-Packages {
     return @($groups.Values | ForEach-Object { [pscustomobject]$_ })
 }
 
+function Assert-AutomationConstraints {
+    param(
+        [object[]]$Tasks,
+        [object]$Config
+    )
+
+    if ($NonInteractive -and (-not $PackagePath -or $PackagePath.Count -eq 0)) {
+        throw "NonInteractive mode requires at least one explicit -PackagePath."
+    }
+
+    $hasExpectedConstraint =
+        -not [string]::IsNullOrWhiteSpace($ExpectedGame) -or
+        -not [string]::IsNullOrWhiteSpace($ExpectedPlatform) -or
+        -not [string]::IsNullOrWhiteSpace($ExpectedRelease) -or
+        -not [string]::IsNullOrWhiteSpace($ExpectedAppId) -or
+        -not [string]::IsNullOrWhiteSpace($ExpectedDepotId)
+
+    if ($hasExpectedConstraint -and $Tasks.Count -ne 1) {
+        throw "Expected constraints require exactly one upload task; received $($Tasks.Count)."
+    }
+
+    if ($RequireSetLiveEmpty -and -not [string]::IsNullOrWhiteSpace([string]$Config.setLive)) {
+        throw "Automation requires config setLive to be empty; received '$([string]$Config.setLive)'."
+    }
+
+    foreach ($task in $Tasks) {
+        if (-not [string]::IsNullOrWhiteSpace($ExpectedGame) -and
+            -not [string]::Equals([string]$task.Game, $ExpectedGame, [System.StringComparison]::Ordinal)) {
+            throw "Expected game '$ExpectedGame'; received '$($task.Game)'."
+        }
+        if (-not [string]::IsNullOrWhiteSpace($ExpectedRelease) -and
+            -not [string]::Equals([string]$task.ReleaseKey, $ExpectedRelease, [System.StringComparison]::OrdinalIgnoreCase)) {
+            throw "Expected release '$ExpectedRelease'; received '$($task.ReleaseKey)'."
+        }
+        if (-not [string]::IsNullOrWhiteSpace($ExpectedAppId) -and
+            -not [string]::Equals([string]$task.AppId, $ExpectedAppId, [System.StringComparison]::Ordinal)) {
+            throw "Expected AppID '$ExpectedAppId'; received '$($task.AppId)'."
+        }
+
+        foreach ($pkg in @($task.Packages)) {
+            if (-not [string]::IsNullOrWhiteSpace($ExpectedPlatform) -and
+                -not [string]::Equals([string]$pkg.Platform, $ExpectedPlatform, [System.StringComparison]::OrdinalIgnoreCase)) {
+                throw "Expected platform '$ExpectedPlatform'; received '$($pkg.Platform)'."
+            }
+            if (-not [string]::IsNullOrWhiteSpace($ExpectedDepotId) -and
+                -not [string]::Equals([string]$pkg.DepotId, $ExpectedDepotId, [System.StringComparison]::Ordinal)) {
+                throw "Expected DepotID '$ExpectedDepotId'; received '$($pkg.DepotId)'."
+            }
+        }
+    }
+}
+
 function Get-TaskPlatformSummary {
     param([object]$Task)
 
@@ -1084,6 +1150,14 @@ function Ensure-EntryName {
     )
 
     $root = Get-EffectiveContentRoot -Path $ContentDir
+    if ($StrictArtifact -and
+        -not [string]::Equals(
+            [System.IO.Path]::GetFullPath($root).TrimEnd('\'),
+            [System.IO.Path]::GetFullPath($ContentDir).TrimEnd('\'),
+            [System.StringComparison]::OrdinalIgnoreCase
+        )) {
+        throw "StrictArtifact rejected an extra top-level directory in '$($Package.FileName)'. Put the game files directly in the ZIP root."
+    }
     $platform = $Package.Platform
     $targetName = $Package.TargetEntryName
     $targetStem = $Package.TargetEntryStem
@@ -1136,6 +1210,10 @@ function Ensure-EntryName {
 
     if (Test-Path -LiteralPath $targetPath) {
         throw $(& T -Key "EntryTargetExists" -Values @($entry.Name, $targetName))
+    }
+
+    if ($StrictArtifact) {
+        throw "StrictArtifact expected entry '$targetName' but found '$beforeName'. The CI artifact must already use the Steam launch name."
     }
 
     Rename-Item -LiteralPath $entry.FullName -NewName $targetName
@@ -1219,6 +1297,7 @@ function Write-AppVdf {
         [string]$BuildOutput,
         [string]$ContentRoot,
         [string]$SetLive,
+        [bool]$PreviewBuild,
         [object[]]$DepotEntries
     )
 
@@ -1231,6 +1310,9 @@ function Write-AppVdf {
     $lines.Add("    `"desc`" `"$Description`"")
     $lines.Add("    `"buildoutput`" `"$outputValue`"")
     $lines.Add("    `"contentroot`" `"$contentRootValue`"")
+    if ($PreviewBuild) {
+        $lines.Add('    "preview" "1"')
+    }
     if (-not [string]::IsNullOrWhiteSpace($SetLive)) {
         $lines.Add("    `"setlive`" `"$SetLive`"")
     }
@@ -1274,7 +1356,7 @@ function New-VdfFiles {
     $platformDesc = (($Task.Packages | Sort-Object Platform | ForEach-Object { $_.Platform }) -join "")
     $desc = "$($Task.Game)_$($Task.Version)_$($Task.ReleaseKey)_${platformDesc}_Auto"
     $appPath = Join-Path $scriptDir "app_build_$($Task.AppId).vdf"
-    Write-AppVdf -Path $appPath -AppId $Task.AppId -Description $desc -BuildOutput $outputDir -ContentRoot $contentRoot -SetLive ([string]$Config.setLive) -DepotEntries $depotEntries
+    Write-AppVdf -Path $appPath -AppId $Task.AppId -Description $desc -BuildOutput $outputDir -ContentRoot $contentRoot -SetLive ([string]$Config.setLive) -PreviewBuild ([bool]$Preview) -DepotEntries $depotEntries
 
     return [pscustomobject]@{
         AppVdf = $appPath
@@ -1356,10 +1438,63 @@ function Invoke-SteamUpload {
     }
 
     Write-Info $(& T -Key "Uploading" -Values @($Task.AppId, $steamCmdPath))
-    & $steamCmdPath +login $SteamUser +run_app_build $VdfInfo.AppVdf +quit
-    $exitCode = $LASTEXITCODE
+    if (-not $NonInteractive) {
+        & $steamCmdPath +login $SteamUser +run_app_build $VdfInfo.AppVdf +quit
+        $interactiveExitCode = $LASTEXITCODE
+        if ($interactiveExitCode -ne 0) {
+            throw $(& T -Key "SteamCmdFailed" -Values @($Task.AppId, $interactiveExitCode, $VdfInfo.OutputDir))
+        }
+        return [pscustomobject]@{
+            ExitCode = $interactiveExitCode
+            BuildId = $null
+        }
+    }
+
+    $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $startInfo.FileName = $steamCmdPath
+    $startInfo.WorkingDirectory = Split-Path -Parent $steamCmdPath
+    $escapedUser = $SteamUser.Replace('"', '\"')
+    $escapedVdf = ([string]$VdfInfo.AppVdf).Replace('"', '\"')
+    $startInfo.Arguments = "+login `"$escapedUser`" +run_app_build `"$escapedVdf`" +quit"
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $startInfo.RedirectStandardInput = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $startInfo
+    if (-not $process.Start()) {
+        throw "Could not start SteamCMD: $steamCmdPath"
+    }
+
+    $process.StandardInput.Close()
+    $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+    $stderrTask = $process.StandardError.ReadToEndAsync()
+    if (-not $process.WaitForExit($SteamCmdTimeoutSeconds * 1000)) {
+        try { $process.Kill() } catch {}
+        throw "SteamCMD timed out after $SteamCmdTimeoutSeconds seconds for AppID $($Task.AppId)."
+    }
+
+    $stdout = $stdoutTask.GetAwaiter().GetResult()
+    $stderr = $stderrTask.GetAwaiter().GetResult()
+    if (-not [string]::IsNullOrWhiteSpace($stdout)) {
+        Write-Host $stdout.TrimEnd()
+    }
+    if (-not [string]::IsNullOrWhiteSpace($stderr)) {
+        Write-Warn $stderr.TrimEnd()
+    }
+
+    $exitCode = $process.ExitCode
     if ($exitCode -ne 0) {
         throw $(& T -Key "SteamCmdFailed" -Values @($Task.AppId, $exitCode, $VdfInfo.OutputDir))
+    }
+
+    $combinedOutput = "$stdout`n$stderr"
+    $buildIdMatch = [regex]::Match($combinedOutput, '(?im)\bbuild\s*id\s*[:#]?\s*(\d+)\b')
+    return [pscustomobject]@{
+        ExitCode = $exitCode
+        BuildId = if ($buildIdMatch.Success) { $buildIdMatch.Groups[1].Value } else { $null }
     }
 }
 
@@ -1368,6 +1503,10 @@ function Get-SteamUser {
 
     if (-not [string]::IsNullOrWhiteSpace($ProvidedSteamUser)) {
         return $ProvidedSteamUser.Trim()
+    }
+
+    if ($NonInteractive) {
+        throw $(& T -Key "SteamUserRequired")
     }
 
     Write-Host ""
@@ -1412,6 +1551,50 @@ function Prompt-OpenSteamworks {
     }
 }
 
+function Write-AutomationResult {
+    param(
+        [object[]]$SucceededTasks,
+        [object[]]$FailedTasks
+    )
+
+    if ([string]::IsNullOrWhiteSpace($ResultPath)) {
+        return
+    }
+
+    $target = [System.IO.Path]::GetFullPath($ResultPath)
+    $parent = Split-Path -Parent $target
+    if (-not [string]::IsNullOrWhiteSpace($parent)) {
+        New-Item -ItemType Directory -Path $parent -Force | Out-Null
+    }
+
+    $payload = [ordered]@{
+        success = ($FailedTasks.Count -eq 0)
+        preview = [bool]$Preview
+        generatedAtUtc = [DateTime]::UtcNow.ToString('o')
+        tasks = @($SucceededTasks | ForEach-Object {
+            [ordered]@{
+                game = [string]$_.Game
+                version = [string]$_.Version
+                release = [string]$_.ReleaseKey
+                appId = [string]$_.AppId
+                depots = @($_.Packages | ForEach-Object { [string]$_.DepotId })
+                platforms = @($_.Packages | ForEach-Object { [string]$_.Platform })
+                buildId = if ($_.PSObject.Properties.Name -contains 'BuildId') { [string]$_.BuildId } else { $null }
+            }
+        })
+        failures = @($FailedTasks | ForEach-Object {
+            [ordered]@{
+                task = [string]$_.Task
+                reason = [string]$_.Reason
+                detail = [string]$_.Detail
+            }
+        })
+    }
+
+    $json = $payload | ConvertTo-Json -Depth 8
+    [System.IO.File]::WriteAllText($target, $json, (New-Object System.Text.UTF8Encoding($false)))
+}
+
 try {
     Write-Host $(& T -Key "Title") -ForegroundColor Green
     if ($PlanOnly) { Write-Warn $(& T -Key "PlanOnlyMode") }
@@ -1440,6 +1623,7 @@ try {
     }
 
     $tasks = Group-Packages -Packages $packages
+    Assert-AutomationConstraints -Tasks $tasks -Config $config
     Show-Plan -Tasks $tasks
 
     if ($PlanOnly) {
@@ -1451,7 +1635,9 @@ try {
     if (-not $DryRun) {
         $null = Ensure-SteamCmd -Config $config
         $uploadSteamUser = Get-SteamUser -ProvidedSteamUser $SteamUser
-        Write-Warn $(& T -Key "SteamCmdPasswordHint")
+        if (-not $NonInteractive) {
+            Write-Warn $(& T -Key "SteamCmdPasswordHint")
+        }
     }
 
     $succeeded = @()
@@ -1483,12 +1669,14 @@ try {
 
             if ($DryRun) {
                 Write-Warn $(& T -Key "DryRunSkipped" -Values @($task.AppId))
+                $task | Add-Member -NotePropertyName BuildId -NotePropertyValue $null -Force
                 $succeeded += $task
                 continue
             }
 
             try {
-                Invoke-SteamUpload -Task $task -VdfInfo $vdfInfo -Config $config -SteamUser $uploadSteamUser
+                $uploadResult = Invoke-SteamUpload -Task $task -VdfInfo $vdfInfo -Config $config -SteamUser $uploadSteamUser
+                $task | Add-Member -NotePropertyName BuildId -NotePropertyValue $uploadResult.BuildId -Force
                 Write-Info $(& T -Key "UploadFinished" -Values @($task.AppId, $vdfInfo.OutputDir))
                 Move-SucceededInboxPackagesToDone -Packages $task.Packages
                 $succeeded += $task
@@ -1509,7 +1697,9 @@ try {
         }
     }
 
-    Prompt-OpenSteamworks -SucceededTasks $succeeded
+    if (-not $NonInteractive) {
+        Prompt-OpenSteamworks -SucceededTasks $succeeded
+    }
     if ($failed.Count -gt 0) {
         Write-Host ""
         Write-Warn (Get-LocalizedText -English "The following tasks failed; other tasks were still processed:" -ChineseBase64 "5Lul5LiL5Lu75Yqh5aSx6LSl77yM5YW25LuW5Lu75Yqh5bey57un57ut5aSE55CG77ya")
@@ -1518,6 +1708,7 @@ try {
             Write-Host "  $($item.Detail)" -ForegroundColor Yellow
         }
     }
+    Write-AutomationResult -SucceededTasks $succeeded -FailedTasks $failed
     Write-Host ""
     Write-Host $(& T -Key "Done") -ForegroundColor Green
     if ($failed.Count -gt 0) {
