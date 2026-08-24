@@ -18,7 +18,7 @@ Use the double-click launchers below; no terminal commands are required.
 
 ### First-time setup
 
-Purpose: install SteamCMD into the platform's `builder` directory on a new machine, or restore it if it is missing or damaged. You normally need this step only once.
+Purpose: install SteamCMD into the platform's `builder` directory on a new machine, bootstrap its self-update, or restore it if it is missing or damaged. You normally need this step only once.
 
 - macOS: double-click `Mac/InstallSteamCMD.command`.
 - Windows: double-click `Win/InstallSteamCMD.bat`.

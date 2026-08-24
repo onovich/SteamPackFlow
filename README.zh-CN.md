@@ -18,7 +18,7 @@
 
 ### 首次安装
 
-用途：在新电脑上将 SteamCMD 安装到对应平台的 `builder` 目录；SteamCMD 缺失或损坏时也可用它恢复。通常只需操作一次。
+用途：在新电脑上将 SteamCMD 安装到对应平台的 `builder` 目录并完成首次自更新；SteamCMD 缺失或损坏时也可用它恢复。通常只需操作一次。
 
 - macOS：双击 `Mac/InstallSteamCMD.command`。
 - Windows：双击 `Win/InstallSteamCMD.bat`。
